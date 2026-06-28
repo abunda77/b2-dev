@@ -25,19 +25,19 @@
    - **Type of Access**: `Read and Write`
    - Klik **Create New Key**
 4. **Simpan** (hanya tampil sekali!):
-   - `keyID` → misal: `005a1b2c3d4e5f6g7h8i9j0k1l2m3n4o`
-   - `applicationKey` → misal: `K001AbCdEfGhIjKlMnOpQrStUvWxYz`
-   - `S3 Endpoint` → misal: `s3.us-west-004.backblazeb2.com`
-   - `Endpoint` → misal: `https://s3.us-west-004.backblazeb2.com`
+   - `keyID` → misal: ``
+   - `applicationKey` → misal: ``
+   - `S3 Endpoint` → misal: ``
+   - `Endpoint` → misal: ``
 
 ### 1.3 Catat Informasi Penting
 | Variabel | Contoh | Keterangan |
 |----------|--------|------------|
-| `keyID` | `005a1b2c3d4e5f6g7h8i9j` | Application Key ID |
-| `applicationKey` | `K001AbCdEfGhIjKlMnOpQr` | Application Key (secret) |
-| `endpoint` | `s3.us-west-004.backblazeb2.com` | S3-compatible endpoint |
-| `region` | `us-west-004` | Region dari endpoint |
-| `bucket` | `myapp-assets` | Nama bucket |
+| `keyID` | `` | Application Key ID |
+| `applicationKey` | `` | Application Key (secret) |
+| `endpoint` | `` | S3-compatible endpoint |
+| `region` | `` | Region dari endpoint |
+| `bucket` | `` | Nama bucket |
 
 ---
 
@@ -71,25 +71,15 @@ composer require league/flysystem-aws-s3-v3 "^3.0"
 ### 2.3 Environment Variables di `.env`
 ```env
 # Backblaze B2 Configuration
-B2_ACCESS_KEY_ID=005a1b2c3d4e5f6g7h8i9j
-B2_SECRET_ACCESS_KEY=K001AbCdEfGhIjKlMnOpQrStUvWxYz
-B2_BUCKET=myapp-assets
-B2_REGION=us-west-004
-B2_ENDPOINT=https://s3.us-west-004.backblazeb2.com
-B2_URL=https://s3.us-west-004.backblazeb2.com/myapp-assets
+B2_ACCESS_KEY_ID=
+B2_SECRET_ACCESS_KEY=
+B2_BUCKET=
+B2_REGION=
+B2_ENDPOINT=
+B2_URL=
 ```
 
-### 2.4 (Opsional) Set Default Disk
-```php
-// config/filesystems.php
-'default' => env('FILESYSTEM_DISK', 'local'),
-```
-```env
-# .env
-FILESYSTEM_DISK=b2
-```
-
-### 2.5 Clear Config Cache
+### 2.4 Clear Config Cache
 ```bash
 php artisan config:clear
 php artisan config:cache
