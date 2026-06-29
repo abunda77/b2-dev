@@ -2,6 +2,8 @@
 
 use App\Models\Warga;
 use Flux\Flux;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
@@ -133,74 +135,119 @@ new #[Title('Data Warga')] #[Layout('layouts.app')] class extends Component {
 
     /**
      * Save (create or update) a warga record.
+     * Uses DB transaction for atomicity. Deletes old files only after DB save succeeds.
      */
     public function save(): void
     {
         $this->validate();
 
         $disk = 'b2';
+        $oldPasFoto = null;
+        $oldDokumen = null;
 
-        if ($this->editingId) {
-            /** @var Warga $warga */
-            $warga = Warga::findOrFail($this->editingId);
+        DB::transaction(function () use ($disk, &$oldPasFoto, &$oldDokumen) {
+            if ($this->editingId) {
+                /** @var Warga $warga */
+                $warga = Warga::findOrFail($this->editingId);
+                $oldPasFoto = $warga->pas_foto;
+                $oldDokumen = $warga->dokumen;
 
-            // Upload pas_foto baru jika ada
-            if ($this->pasFoto) {
-                if ($warga->pas_foto) {
-                    Storage::disk($disk)->delete($warga->pas_foto);
+                // Upload pas_foto baru jika ada
+                if ($this->pasFoto) {
+                    try {
+                        $warga->pas_foto = $this->pasFoto->storePubliclyAs(
+                            'warga/pas_foto',
+                            $this->generateFileName($this->pasFoto),
+                            $disk
+                        );
+                    } catch (\Exception $e) {
+                        Log::error('Gagal upload pas_foto', ['error' => $e->getMessage()]);
+                        Flux::toast(variant: 'error', text: 'Gagal mengupload pas foto.');
+
+                        throw $e;
+                    }
                 }
-                $warga->pas_foto = $this->pasFoto->storePubliclyAs(
-                    'warga/pas_foto',
-                    $this->generateFileName($this->pasFoto),
-                    $disk
-                );
-            }
 
-            // Upload dokumen baru jika ada
-            if ($this->dokumen) {
-                if ($warga->dokumen) {
-                    Storage::disk($disk)->delete($warga->dokumen);
+                // Upload dokumen baru jika ada
+                if ($this->dokumen) {
+                    try {
+                        $warga->dokumen = $this->dokumen->storePubliclyAs(
+                            'warga/dokumen',
+                            $this->generateFileName($this->dokumen),
+                            $disk
+                        );
+                    } catch (\Exception $e) {
+                        Log::error('Gagal upload dokumen', ['error' => $e->getMessage()]);
+                        Flux::toast(variant: 'error', text: 'Gagal mengupload dokumen.');
+
+                        throw $e;
+                    }
                 }
-                $warga->dokumen = $this->dokumen->storePubliclyAs(
-                    'warga/dokumen',
-                    $this->generateFileName($this->dokumen),
-                    $disk
-                );
+
+                $warga->nik = $this->nik;
+                $warga->nama = $this->nama;
+                $warga->alamat = $this->alamat;
+                $warga->save();
+
+                Flux::toast(variant: 'success', text: "Data warga {$warga->nama} berhasil diperbarui.");
+            } else {
+                // Upload pas_foto
+                try {
+                    $pasFotoPath = $this->pasFoto->storePubliclyAs(
+                        'warga/pas_foto',
+                        $this->generateFileName($this->pasFoto),
+                        $disk
+                    );
+                } catch (\Exception $e) {
+                    Log::error('Gagal upload pas_foto', ['error' => $e->getMessage()]);
+                    Flux::toast(variant: 'error', text: 'Gagal mengupload pas foto.');
+
+                    throw $e;
+                }
+
+                // Upload dokumen jika ada
+                $dokumenPath = null;
+                if ($this->dokumen) {
+                    try {
+                        $dokumenPath = $this->dokumen->storePubliclyAs(
+                            'warga/dokumen',
+                            $this->generateFileName($this->dokumen),
+                            $disk
+                        );
+                    } catch (\Exception $e) {
+                        Log::error('Gagal upload dokumen', ['error' => $e->getMessage()]);
+                        Flux::toast(variant: 'error', text: 'Gagal mengupload dokumen.');
+
+                        throw $e;
+                    }
+                }
+
+                $warga = Warga::create([
+                    'nik' => $this->nik,
+                    'nama' => $this->nama,
+                    'alamat' => $this->alamat,
+                    'pas_foto' => $pasFotoPath,
+                    'dokumen' => $dokumenPath,
+                ]);
+
+                Flux::toast(variant: 'success', text: "Data warga {$warga->nama} berhasil ditambahkan.");
             }
+        });
 
-            $warga->nik = $this->nik;
-            $warga->nama = $this->nama;
-            $warga->alamat = $this->alamat;
-            $warga->save();
-
-            Flux::toast(variant: 'success', text: "Data warga {$warga->nama} berhasil diperbarui.");
-        } else {
-            // Upload pas_foto
-            $pasFotoPath = $this->pasFoto->storePubliclyAs(
-                'warga/pas_foto',
-                $this->generateFileName($this->pasFoto),
-                $disk
-            );
-
-            // Upload dokumen jika ada
-            $dokumenPath = null;
-            if ($this->dokumen) {
-                $dokumenPath = $this->dokumen->storePubliclyAs(
-                    'warga/dokumen',
-                    $this->generateFileName($this->dokumen),
-                    $disk
-                );
+        // Hapus file lama setelah transaksi sukses (atomic)
+        if ($oldPasFoto && str_starts_with($oldPasFoto, 'warga/pas_foto/')) {
+            try {
+                Storage::disk($disk)->delete($oldPasFoto);
+            } catch (\Exception $e) {
+                Log::error('Gagal hapus pas_foto lama', ['path' => $oldPasFoto, 'error' => $e->getMessage()]);
             }
-
-            $warga = Warga::create([
-                'nik' => $this->nik,
-                'nama' => $this->nama,
-                'alamat' => $this->alamat,
-                'pas_foto' => $pasFotoPath,
-                'dokumen' => $dokumenPath,
-            ]);
-
-            Flux::toast(variant: 'success', text: "Data warga {$warga->nama} berhasil ditambahkan.");
+        }
+        if ($oldDokumen && str_starts_with($oldDokumen, 'warga/dokumen/')) {
+            try {
+                Storage::disk($disk)->delete($oldDokumen);
+            } catch (\Exception $e) {
+                Log::error('Gagal hapus dokumen lama', ['path' => $oldDokumen, 'error' => $e->getMessage()]);
+            }
         }
 
         $this->showFormModal = false;
@@ -221,6 +268,7 @@ new #[Title('Data Warga')] #[Layout('layouts.app')] class extends Component {
 
     /**
      * Delete a warga record and its associated files from B2.
+     * Validates path prefix before deletion. Logs storage errors.
      */
     public function delete(): void
     {
@@ -230,16 +278,28 @@ new #[Title('Data Warga')] #[Layout('layouts.app')] class extends Component {
 
         $warga = Warga::findOrFail($this->wargaToDeleteId);
         $disk = 'b2';
-
-        if ($warga->pas_foto) {
-            Storage::disk($disk)->delete($warga->pas_foto);
-        }
-        if ($warga->dokumen) {
-            Storage::disk($disk)->delete($warga->dokumen);
-        }
-
         $nama = $warga->nama;
+        $pasFoto = $warga->pas_foto;
+        $dokumen = $warga->dokumen;
+
         $warga->delete();
+
+        // Hapus file setelah DB delete sukses, dengan validasi path
+        if ($pasFoto && str_starts_with($pasFoto, 'warga/pas_foto/')) {
+            try {
+                Storage::disk($disk)->delete($pasFoto);
+            } catch (\Exception $e) {
+                Log::error('Gagal hapus pas_foto', ['path' => $pasFoto, 'error' => $e->getMessage()]);
+            }
+        }
+
+        if ($dokumen && str_starts_with($dokumen, 'warga/dokumen/')) {
+            try {
+                Storage::disk($disk)->delete($dokumen);
+            } catch (\Exception $e) {
+                Log::error('Gagal hapus dokumen', ['path' => $dokumen, 'error' => $e->getMessage()]);
+            }
+        }
 
         $this->showDeleteModal = false;
         $this->wargaToDeleteId = null;
@@ -317,13 +377,17 @@ new #[Title('Data Warga')] #[Layout('layouts.app')] class extends Component {
                         <flux:table.row wire:key="warga-{{ $warga->id }}">
                             {{-- Pas Foto --}}
                             <flux:table.cell>
-                                <a href="{{ Storage::disk('b2')->url($warga->pas_foto) }}" target="_blank" class="block">
-                                    <img
-                                        src="{{ Storage::disk('b2')->url($warga->pas_foto) }}"
-                                        alt="Pas foto {{ $warga->nama }}"
-                                        class="h-12 w-10 rounded object-cover ring-1 ring-zinc-200 dark:ring-zinc-700"
-                                    />
-                                </a>
+                                @if ($warga->pas_foto)
+                                    <a href="{{ Storage::disk('b2')->url($warga->pas_foto) }}" target="_blank" class="block">
+                                        <img
+                                            src="{{ Storage::disk('b2')->url($warga->pas_foto) }}"
+                                            alt="Pas foto {{ $warga->nama }}"
+                                            class="h-12 w-10 rounded object-cover ring-1 ring-zinc-200 dark:ring-zinc-700"
+                                        />
+                                    </a>
+                                @else
+                                    <flux:badge size="sm" color="zinc">{{ __('Tidak ada') }}</flux:badge>
+                                @endif
                             </flux:table.cell>
 
                             {{-- NIK --}}
