@@ -94,6 +94,26 @@ Lihat panduan lengkap:
 - [`panduan-backblaze-b2-laravel-livewire.md`](panduan-backblaze-b2-laravel-livewire.md)
 - [`panduan-r2-cloudflare-laravel-livewire.md`](panduan-r2-cloudflare-laravel-livewire.md)
 
+## Artisan Commands
+
+### `livewire:clear-tmp`
+
+Menghapus file temporary upload Livewire secara manual.
+
+```bash
+# Hapus file temporary yang lebih tua dari 24 jam (default)
+php artisan livewire:clear-tmp
+
+# Hapus file temporary yang lebih tua dari 6 jam
+php artisan livewire:clear-tmp --hours=6
+
+# Hapus semua file temporary tanpa cek umur
+php artisan livewire:clear-tmp --all
+
+# Dry run — tampilkan file yang akan dihapus tanpa menghapusnya
+php artisan livewire:clear-tmp --dry-run
+```
+
 ## Pengujian & Kualitas Kode
 
 ```bash
