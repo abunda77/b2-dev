@@ -60,12 +60,12 @@ composer require league/flysystem-aws-s3-v3 "^3.0"
 
 ### 2.3 Tambah Environment Variables di `.env`
 ```env
-R2_ACCESS_KEY_ID=access_key_kamu
-R2_SECRET_ACCESS_KEY=secret_key_kamu
-R2_BUCKET=myapp-assets
+R2_ACCESS_KEY_ID=
+R2_SECRET_ACCESS_KEY=
+R2_BUCKET=
 R2_REGION=auto
-R2_ENDPOINT=https://xxxxxxxxx.r2.cloudflarestorage.com
-R2_URL=https://assets.example.com
+R2_ENDPOINT=
+R2_URL=
 ```
 
 ---
