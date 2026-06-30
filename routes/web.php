@@ -9,6 +9,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::livewire('warga', 'pages::warga.index')->name('warga.index');
     Route::livewire('whatsapp/send-message', 'pages::whatsapp.send-message')->name('whatsapp.send-message');
+    Route::livewire('email/send-message', 'pages::email.send-message')->name('email.send-message');
 });
 
 require __DIR__.'/settings.php';

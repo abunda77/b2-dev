@@ -9,6 +9,7 @@ Aplikasi web berbasis **Laravel 13** dan **Livewire 4** untuk mengelola data war
 - **Passkey & Two-Factor Authentication** — keamanan akun via `laravel/fortify` dan `@laravel/passkeys`.
 - **Penyimpanan fleksibel** — disk `local`, `public`, `s3` (B2), dan `r2` (Cloudflare R2).
 - **WhatsApp Gateway** — kirim pesan WhatsApp melalui REST API gateway dengan dukungan Basic Auth, `X-Device-Id`, debug konfigurasi `.env`, dan tampilan detail error pengiriman.
+- **SMTP Email Dashboard** — kirim email SMTP Brevo dari dashboard dengan debug konfigurasi `.env` dan status pengiriman via toaster.
 - **UI modern** — Flux UI + TailwindCSS 4, halaman pengaturan (profil, keamanan, tampilan).
 
 ## Tech Stack
@@ -30,6 +31,7 @@ Aplikasi web berbasis **Laravel 13** dan **Livewire 4** untuk mengelola data war
 - Composer
 - Node.js & npm
 - Layanan WhatsApp Gateway aktif bila ingin memakai fitur kirim pesan WhatsApp
+- Kredensial SMTP Brevo aktif bila ingin memakai fitur kirim email dashboard
 
 ## Instalasi
 
@@ -78,9 +80,10 @@ database/
 ├── factories/     # Factory untuk testing
 └── seeders/
 resources/views/
-├── pages/warga/   # Halaman manajemen warga
-├── pages/auth/    # Halaman autentikasi
-└── pages/whatsapp/# Halaman kirim pesan WhatsApp
+├── pages/warga/    # Halaman manajemen warga
+├── pages/auth/     # Halaman autentikasi
+├── pages/email/    # Halaman kirim email SMTP
+└── pages/whatsapp/ # Halaman kirim pesan WhatsApp
 ```
 
 ## Konfigurasi Penyimpanan
@@ -97,6 +100,46 @@ Akses file privat: `Storage::disk('b2')->temporaryUrl($path, $expiration)`
 Lihat panduan lengkap:
 - [`panduan-backblaze-b2-laravel-livewire.md`](panduan-backblaze-b2-laravel-livewire.md)
 - [`panduan-r2-cloudflare-laravel-livewire.md`](panduan-r2-cloudflare-laravel-livewire.md)
+- [`panduan-smtp-brevo-laravel.md`](panduan-smtp-brevo-laravel.md)
+
+## Konfigurasi SMTP Email
+
+Fitur kirim email dashboard memakai mailer SMTP Laravel. Konfigurasi dibaca dari `config/mail.php` dan `.env`.
+
+Contoh variabel `.env`:
+
+```env
+MAIL_MAILER=smtp
+MAIL_SCHEME=tls
+MAIL_HOST=smtp-relay.brevo.com
+MAIL_PORT=587
+MAIL_USERNAME=your-smtp-login@smtp-brevo.com
+MAIL_PASSWORD=your-smtp-key
+MAIL_EHLO_DOMAIN=localhost
+MAIL_FROM_ADDRESS=no-reply@contohdomain.com
+MAIL_FROM_NAME="B2 Dev"
+```
+
+Keterangan singkat:
+- `MAIL_MAILER` — harus `smtp` agar halaman dashboard bisa kirim email.
+- `MAIL_SCHEME` — skema koneksi SMTP, umumnya `tls` untuk Brevo.
+- `MAIL_HOST` — host relay SMTP.
+- `MAIL_PORT` — port SMTP relay.
+- `MAIL_USERNAME` — username SMTP Brevo.
+- `MAIL_PASSWORD` — SMTP key Brevo.
+- `MAIL_EHLO_DOMAIN` — domain EHLO handshake SMTP.
+- `MAIL_FROM_ADDRESS` — alamat pengirim default.
+- `MAIL_FROM_NAME` — nama pengirim default.
+
+Endpoint aplikasi:
+- Halaman kirim email: `/email/send-message`
+
+Catatan operasional:
+- Sender email harus sudah diverifikasi di Brevo.
+- Setelah ubah `.env`, jalankan `php artisan config:clear`.
+- Halaman kirim email menampilkan debug konfigurasi `.env` dan toaster status pengiriman.
+
+Lihat panduan lengkap:
 - [`panduan-smtp-brevo-laravel.md`](panduan-smtp-brevo-laravel.md)
 
 ## Konfigurasi WhatsApp Gateway
