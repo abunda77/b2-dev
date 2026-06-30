@@ -1,5 +1,8 @@
 <?php
 
+use GuzzleHttp\Client;
+use GuzzleHttp\Exception\ConnectException;
+
 /**
  * Script untuk menguji koneksi ke Backblaze B2 (S3-compatible API).
  * Menggunakan GuzzleHttp (sudah tersedia di Laravel) + AWS Signature V4 manual.
@@ -13,11 +16,11 @@ require __DIR__.'/../vendor/autoload.php';
 $dotenv = Dotenv\Dotenv::createImmutable(__DIR__.'/..');
 $dotenv->load();
 
-$key      = $_ENV['B2_ACCESS_KEY_ID'] ?? '';
-$secret   = $_ENV['B2_SECRET_ACCESS_KEY'] ?? '';
-$region   = $_ENV['B2_REGION'] ?? '';
+$key = $_ENV['B2_ACCESS_KEY_ID'] ?? '';
+$secret = $_ENV['B2_SECRET_ACCESS_KEY'] ?? '';
+$region = $_ENV['B2_REGION'] ?? '';
 $endpoint = $_ENV['B2_ENDPOINT'] ?? '';
-$bucket   = $_ENV['B2_BUCKET'] ?? '';
+$bucket = $_ENV['B2_BUCKET'] ?? '';
 
 if (empty($key) || empty($secret) || empty($bucket) || empty($region) || empty($endpoint)) {
     exit("❌ Missing required B2 environment variables.\n   Pastikan B2_ACCESS_KEY_ID, B2_SECRET_ACCESS_KEY, B2_BUCKET, B2_REGION, B2_ENDPOINT sudah diisi di .env\n");
@@ -40,25 +43,25 @@ function buildAwsSignatureV4(
     string $service = 's3'
 ): array {
     $parsedUrl = parse_url($url);
-    $host      = $parsedUrl['host'];
-    $path      = $parsedUrl['path'] ?? '/';
+    $host = $parsedUrl['host'];
+    $path = $parsedUrl['path'] ?? '/';
 
-    $datetime  = gmdate('Ymd\THis\Z');
-    $date      = gmdate('Ymd');
+    $datetime = gmdate('Ymd\THis\Z');
+    $date = gmdate('Ymd');
 
     $headers = [
-        'host'                 => $host,
+        'host' => $host,
         'x-amz-content-sha256' => 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
-        'x-amz-date'           => $datetime,
+        'x-amz-date' => $datetime,
     ];
 
     // Canonical request
-    $canonicalHeaders  = '';
+    $canonicalHeaders = '';
     $signedHeadersList = [];
     ksort($headers);
     foreach ($headers as $k => $v) {
-        $canonicalHeaders    .= strtolower($k).':'.$v."\n";
-        $signedHeadersList[]  = strtolower($k);
+        $canonicalHeaders .= strtolower($k).':'.$v."\n";
+        $signedHeadersList[] = strtolower($k);
     }
     $signedHeaders = implode(';', $signedHeadersList);
 
@@ -73,7 +76,7 @@ function buildAwsSignatureV4(
 
     // String to sign
     $credentialScope = "{$date}/{$region}/{$service}/aws4_request";
-    $stringToSign    = implode("\n", [
+    $stringToSign = implode("\n", [
         'AWS4-HMAC-SHA256',
         $datetime,
         $credentialScope,
@@ -103,10 +106,10 @@ function buildAwsSignatureV4(
 }
 
 try {
-    $url     = rtrim($endpoint, '/').'/'.ltrim($bucket, '/');
+    $url = rtrim($endpoint, '/').'/'.ltrim($bucket, '/');
     $headers = buildAwsSignatureV4('HEAD', $url, $key, $secret, $region);
 
-    $guzzle  = new GuzzleHttp\Client(['http_errors' => false, 'timeout' => 10]);
+    $guzzle = new Client(['http_errors' => false, 'timeout' => 10]);
 
     $response = $guzzle->request('HEAD', $url, ['headers' => $headers]);
 
@@ -116,7 +119,7 @@ try {
         echo "✅ Koneksi berhasil! Bucket '{$bucket}' dapat diakses.\n";
     } elseif ($status === 301 || $status === 302) {
         echo "↩️  Redirect ({$status}): endpoint mungkin perlu disesuaikan.\n";
-        echo "   Location: ".$response->getHeaderLine('Location')."\n";
+        echo '   Location: '.$response->getHeaderLine('Location')."\n";
     } elseif ($status === 403) {
         echo "⚠️  Autentikasi gagal (403 Forbidden).\n";
         echo "   Periksa B2_ACCESS_KEY_ID dan B2_SECRET_ACCESS_KEY di .env\n";
@@ -126,10 +129,10 @@ try {
     } else {
         echo "⚠️  Response HTTP {$status}. Periksa konfigurasi B2 di .env\n";
     }
-} catch (GuzzleHttp\Exception\ConnectException $e) {
+} catch (ConnectException $e) {
     echo "❌ Koneksi gagal: tidak dapat terhubung ke endpoint.\n";
-    echo "   Pesan: ".$e->getMessage()."\n";
+    echo '   Pesan: '.$e->getMessage()."\n";
     echo "   Pastikan B2_ENDPOINT benar dan jaringan tersedia.\n";
 } catch (Exception $e) {
-    echo "❌ Error: ".$e->getMessage()."\n";
+    echo '❌ Error: '.$e->getMessage()."\n";
 }

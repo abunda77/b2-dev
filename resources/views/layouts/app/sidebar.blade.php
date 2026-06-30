@@ -18,6 +18,9 @@
                     <flux:sidebar.item icon="users" :href="route('warga.index')" :current="request()->routeIs('warga.*')" wire:navigate>
                         {{ __('Warga') }}
                     </flux:sidebar.item>
+                    <flux:sidebar.item icon="chat-bubble-left" :href="route('whatsapp.send-message')" :current="request()->routeIs('whatsapp.*')" wire:navigate>
+                        {{ __('WhatsApp') }}
+                    </flux:sidebar.item>
                 </flux:sidebar.group>
             </flux:sidebar.nav>
 

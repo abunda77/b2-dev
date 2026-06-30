@@ -1,6 +1,6 @@
 # B2 Dev — Aplikasi Manajemen Warga
 
-Aplikasi web berbasis **Laravel 13** dan **Livewire 4** untuk mengelola data warga (NIK, nama, alamat, pas foto, dan dokumen). Dibangun di atas Laravel Livewire Starter Kit dengan autentikasi modern (passkey + 2FA via Fortify) dan penyimpanan file ke storage S3-compatible (Backblaze B2 / Cloudflare R2 / AWS S3).
+Aplikasi web berbasis **Laravel 13** dan **Livewire 4** untuk mengelola data warga (NIK, nama, alamat, pas foto, dan dokumen). Dibangun di atas Laravel Livewire Starter Kit dengan autentikasi modern (passkey + 2FA via Fortify), penyimpanan file ke storage S3-compatible (Backblaze B2 / Cloudflare R2 / AWS S3), dan integrasi **WhatsApp Gateway** untuk pengiriman pesan.
 
 ## Fitur
 
@@ -8,25 +8,28 @@ Aplikasi web berbasis **Laravel 13** dan **Livewire 4** untuk mengelola data war
 - **Autentikasi lengkap** — login, registrasi, reset password, verifikasi email.
 - **Passkey & Two-Factor Authentication** — keamanan akun via `laravel/fortify` dan `@laravel/passkeys`.
 - **Penyimpanan fleksibel** — disk `local`, `public`, `s3` (B2), dan `r2` (Cloudflare R2).
+- **WhatsApp Gateway** — kirim pesan WhatsApp melalui REST API gateway dengan dukungan Basic Auth, `X-Device-Id`, debug konfigurasi `.env`, dan tampilan detail error pengiriman.
 - **UI modern** — Flux UI + TailwindCSS 4, halaman pengaturan (profil, keamanan, tampilan).
 
 ## Tech Stack
 
 | Kategori        | Teknologi                                             |
 | --------------- | ----------------------------------------------------- |
-| Backend         | Laravel 13.x, PHP 8.3                                  |
+| Backend         | Laravel 13.x, PHP 8.3                                 |
 | Frontend        | Livewire 4.x, Flux UI, TailwindCSS 4, Vite, Alpine.js |
 | Autentikasi     | Laravel Fortify, Passkeys, 2FA                        |
+| Integrasi       | WhatsApp Gateway REST API (Go)                        |
 | Penyimpanan     | S3-compatible (Backblaze B2, Cloudflare R2, AWS S3)   |
 | Database        | SQLite (dev), PostgreSQL/MySQL (prod)                 |
-| Testing         | PHPUnit 12.x                                           |
-| Kualitas Kode   | Laravel Pint, Larastan (PHPStan)                       |
+| Testing         | PHPUnit 12.x                                          |
+| Kualitas Kode   | Laravel Pint, Larastan (PHPStan)                      |
 
 ## Persyaratan
 
 - PHP 8.3+
 - Composer
 - Node.js & npm
+- Layanan WhatsApp Gateway aktif bila ingin memakai fitur kirim pesan WhatsApp
 
 ## Instalasi
 
@@ -76,7 +79,8 @@ database/
 └── seeders/
 resources/views/
 ├── pages/warga/   # Halaman manajemen warga
-└── pages/auth/    # Halaman autentikasi
+├── pages/auth/    # Halaman autentikasi
+└── pages/whatsapp/# Halaman kirim pesan WhatsApp
 ```
 
 ## Konfigurasi Penyimpanan
@@ -93,6 +97,40 @@ Akses file privat: `Storage::disk('b2')->temporaryUrl($path, $expiration)`
 Lihat panduan lengkap:
 - [`panduan-backblaze-b2-laravel-livewire.md`](panduan-backblaze-b2-laravel-livewire.md)
 - [`panduan-r2-cloudflare-laravel-livewire.md`](panduan-r2-cloudflare-laravel-livewire.md)
+
+## Konfigurasi WhatsApp Gateway
+
+Fitur kirim pesan WhatsApp memakai gateway REST terpisah. Konfigurasi aplikasi Laravel dibaca dari `config/whatsapp.php` dan `.env`.
+
+Contoh variabel `.env`:
+
+```env
+WHATSAPP_AUTH=admin:example
+WHATSAPP_IP=127.0.0.1
+WHATSAPP_PORT=3000
+WHATSAPP_DEVICE_ID=628123456789@s.whatsapp.net
+WHATSAPP_ACTION=stop
+WHATSAPP_DURATION=86400
+```
+
+Keterangan singkat:
+- `WHATSAPP_AUTH` — pasangan `username:password` untuk Basic Auth gateway.
+- `WHATSAPP_IP` — host atau IP service gateway.
+- `WHATSAPP_PORT` — port service gateway.
+- `WHATSAPP_DEVICE_ID` — device id WhatsApp aktif, dikirim lewat header `X-Device-Id`.
+- `WHATSAPP_ACTION` — action konteks pesan.
+- `WHATSAPP_DURATION` — durasi dalam detik. Nilai harus integer, mis. `86400`.
+
+Endpoint aplikasi:
+- Halaman kirim pesan: `/whatsapp/send-message`
+
+Catatan operasional:
+- Gateway harus aktif dalam mode REST.
+- Minimal satu device WhatsApp harus sudah terhubung.
+- Halaman kirim pesan menampilkan debug konfigurasi `.env` dan detail error dari gateway bila pengiriman gagal.
+
+Lihat dokumentasi lengkap gateway:
+- [`WHATSAPPGATEWAY.md`](WHATSAPPGATEWAY.md)
 
 ## Artisan Commands
 
