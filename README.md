@@ -97,6 +97,7 @@ Akses file privat: `Storage::disk('b2')->temporaryUrl($path, $expiration)`
 Lihat panduan lengkap:
 - [`panduan-backblaze-b2-laravel-livewire.md`](panduan-backblaze-b2-laravel-livewire.md)
 - [`panduan-r2-cloudflare-laravel-livewire.md`](panduan-r2-cloudflare-laravel-livewire.md)
+- [`panduan-smtp-brevo-laravel.md`](panduan-smtp-brevo-laravel.md)
 
 ## Konfigurasi WhatsApp Gateway
 
