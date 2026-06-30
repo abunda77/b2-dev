@@ -2,33 +2,29 @@
 
 namespace App\Providers;
 
+use App\Http\Responses\LoginOtpLoginResponse;
+use App\Http\Responses\LoginOtpRegisterResponse;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
+use Laravel\Fortify\Contracts\LoginResponse;
+use Laravel\Fortify\Contracts\RegisterResponse;
 
 class AppServiceProvider extends ServiceProvider
 {
-    /**
-     * Register any application services.
-     */
     public function register(): void
     {
-        //
+        $this->app->singleton(LoginResponse::class, LoginOtpLoginResponse::class);
+        $this->app->singleton(RegisterResponse::class, LoginOtpRegisterResponse::class);
     }
 
-    /**
-     * Bootstrap any application services.
-     */
     public function boot(): void
     {
         $this->configureDefaults();
     }
 
-    /**
-     * Configure default behaviors for production-ready applications.
-     */
     protected function configureDefaults(): void
     {
         Date::use(CarbonImmutable::class);

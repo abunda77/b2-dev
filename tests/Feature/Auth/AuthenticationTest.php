@@ -4,6 +4,7 @@ namespace Tests\Feature\Auth;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Mail;
 use Laravel\Fortify\Features;
 use Tests\TestCase;
 
@@ -20,6 +21,7 @@ class AuthenticationTest extends TestCase
 
     public function test_users_can_authenticate_using_the_login_screen(): void
     {
+        Mail::fake();
         $user = User::factory()->create();
 
         $response = $this->post(route('login.store'), [
@@ -29,7 +31,7 @@ class AuthenticationTest extends TestCase
 
         $response
             ->assertSessionHasNoErrors()
-            ->assertRedirect(route('dashboard', absolute: false));
+            ->assertRedirect(route('otp.challenge', absolute: false));
 
         $this->assertAuthenticated();
     }

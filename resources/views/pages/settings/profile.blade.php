@@ -1,8 +1,8 @@
 <?php
 
 use App\Concerns\ProfileValidationRules;
-use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Flux\Flux;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Session;
 use Livewire\Attributes\Computed;
@@ -14,26 +14,31 @@ new #[Title('Profile settings')] class extends Component {
 
     public string $name = '';
     public string $email = '';
+    public string $whatsapp_phone = '';
+    public string $otp_channel_preference = 'email';
 
-    /**
-     * Mount the component.
-     */
     public function mount(): void
     {
         $this->name = Auth::user()->name;
         $this->email = Auth::user()->email;
+        $this->whatsapp_phone = Auth::user()->whatsapp_phone ?? '';
+        $this->otp_channel_preference = Auth::user()->otp_channel_preference;
     }
 
-    /**
-     * Update the profile information for the currently authenticated user.
-     */
     public function updateProfileInformation(): void
     {
         $user = Auth::user();
 
         $validated = $this->validate($this->profileRules($user->id));
+        $validated['whatsapp_phone'] = $validated['whatsapp_phone'] !== '' ? $validated['whatsapp_phone'] : null;
 
         $user->fill($validated);
+
+        if ($user->otp_channel_preference === 'whatsapp' && blank($user->whatsapp_phone)) {
+            $this->addError('whatsapp_phone', __('Nomor WhatsApp wajib diisi jika kanal OTP memakai WhatsApp.'));
+
+            return;
+        }
 
         if ($user->isDirty('email')) {
             $user->email_verified_at = null;
@@ -44,9 +49,6 @@ new #[Title('Profile settings')] class extends Component {
         Flux::toast(variant: 'success', text: __('Profile updated.'));
     }
 
-    /**
-     * Send an email verification notification to the current user.
-     */
     public function resendVerificationNotification(): void
     {
         $user = Auth::user();
@@ -81,7 +83,7 @@ new #[Title('Profile settings')] class extends Component {
 
     <flux:heading class="sr-only">{{ __('Profile settings') }}</flux:heading>
 
-    <x-pages::settings.layout :heading="__('Profile')" :subheading="__('Update your name and email address')">
+    <x-pages::settings.layout :heading="__('Profile')" :subheading="__('Update your name, email, WhatsApp number, and login OTP settings')">
         <form wire:submit="updateProfileInformation" class="my-6 w-full space-y-6">
             <flux:input wire:model="name" :label="__('Name')" type="text" required autofocus autocomplete="name" />
 
@@ -107,13 +109,28 @@ new #[Title('Profile settings')] class extends Component {
                 @endif
             </div>
 
+            <flux:field>
+                <flux:label>{{ __('Nomor WhatsApp') }}</flux:label>
+                <flux:input wire:model="whatsapp_phone" type="text" autocomplete="tel" placeholder="6281310307754" />
+                <flux:description>{{ __('Dipakai bila kanal OTP login menggunakan WhatsApp.') }}</flux:description>
+                <flux:error name="whatsapp_phone" />
+            </flux:field>
+
+            <div class="space-y-3">
+                <flux:text>{{ __('Kanal OTP Login') }}</flux:text>
+                <flux:radio.group wire:model="otp_channel_preference" variant="segmented">
+                    <flux:radio value="email">{{ __('Email') }}</flux:radio>
+                    <flux:radio value="whatsapp">{{ __('WhatsApp') }}</flux:radio>
+                </flux:radio.group>
+                <flux:error name="otp_channel_preference" />
+            </div>
+
             <div class="flex items-center gap-4">
                 <div class="flex items-center justify-end">
                     <flux:button variant="primary" type="submit" class="w-full" data-test="update-profile-button">
                         {{ __('Save') }}
                     </flux:button>
                 </div>
-
             </div>
         </form>
 

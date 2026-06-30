@@ -13,8 +13,6 @@ class CreateNewUser implements CreatesNewUsers
     use PasswordValidationRules, ProfileValidationRules;
 
     /**
-     * Validate and create a newly registered user.
-     *
      * @param  array<string, string>  $input
      */
     public function create(array $input): User
@@ -27,6 +25,8 @@ class CreateNewUser implements CreatesNewUsers
         return User::create([
             'name' => $input['name'],
             'email' => $input['email'],
+            'whatsapp_phone' => $input['whatsapp_phone'] ?: null,
+            'otp_channel_preference' => $input['otp_channel_preference'],
             'password' => $input['password'],
         ]);
     }

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Auth;
 
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Fortify\Features;
 use Tests\TestCase;
@@ -29,13 +30,20 @@ class RegistrationTest extends TestCase
         $response = $this->post(route('register.store'), [
             'name' => 'John Doe',
             'email' => 'test@example.com',
+            'whatsapp_phone' => '628123456789',
+            'otp_channel_preference' => 'email',
             'password' => 'password',
             'password_confirmation' => 'password',
         ]);
 
         $response->assertSessionHasNoErrors()
-            ->assertRedirect(route('dashboard', absolute: false));
+            ->assertRedirect(route('otp.challenge', absolute: false));
 
         $this->assertAuthenticated();
+        $this->assertDatabaseHas((new User)->getTable(), [
+            'email' => 'test@example.com',
+            'whatsapp_phone' => '628123456789',
+            'otp_channel_preference' => 'email',
+        ]);
     }
 }

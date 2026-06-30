@@ -1,12 +1,13 @@
 # B2 Dev — Aplikasi Manajemen Warga
 
-Aplikasi web berbasis **Laravel 13** dan **Livewire 4** untuk mengelola data warga (NIK, nama, alamat, pas foto, dan dokumen). Dibangun di atas Laravel Livewire Starter Kit dengan autentikasi modern (passkey + 2FA via Fortify), penyimpanan file ke storage S3-compatible (Backblaze B2 / Cloudflare R2 / AWS S3), dan integrasi **WhatsApp Gateway** untuk pengiriman pesan.
+Aplikasi web berbasis **Laravel 13** dan **Livewire 4** untuk mengelola data warga (NIK, nama, alamat, pas foto, dan dokumen). Dibangun di atas Laravel Livewire Starter Kit dengan autentikasi modern (passkey + 2FA via Fortify + OTP), penyimpanan file ke storage S3-compatible (Backblaze B2 / Cloudflare R2 / AWS S3), dan integrasi **WhatsApp Gateway** untuk pengiriman pesan dan kode OTP.
 
 ## Fitur
 
 - **Manajemen Warga** — pencatatan data warga beserta unggahan pas foto dan dokumen.
 - **Autentikasi lengkap** — login, registrasi, reset password, verifikasi email.
 - **Passkey & Two-Factor Authentication** — keamanan akun via `laravel/fortify` dan `@laravel/passkeys`.
+- **OTP Login** — verifikasi dua langkah setelah login berhasil menggunakan kode OTP 6 digit, dikirim via WhatsApp atau email. Mendukung kirim ulang, pembatasan percobaan, dan kedaluwarsa otomatis.
 - **Penyimpanan fleksibel** — disk `local`, `public`, `s3` (B2), dan `r2` (Cloudflare R2).
 - **WhatsApp Gateway** — kirim pesan WhatsApp melalui REST API gateway dengan dukungan Basic Auth, `X-Device-Id`, debug konfigurasi `.env`, dan tampilan detail error pengiriman.
 - **SMTP Email Dashboard** — kirim email SMTP Brevo dari dashboard dengan debug konfigurasi `.env` dan status pengiriman via toaster.
@@ -18,7 +19,8 @@ Aplikasi web berbasis **Laravel 13** dan **Livewire 4** untuk mengelola data war
 | --------------- | ----------------------------------------------------- |
 | Backend         | Laravel 13.x, PHP 8.3                                 |
 | Frontend        | Livewire 4.x, Flux UI, TailwindCSS 4, Vite, Alpine.js |
-| Autentikasi     | Laravel Fortify, Passkeys, 2FA                        |
+| Autentikasi     | Laravel Fortify, Passkeys, 2FA, OTP Login             |
+| Queue           | Laravel Queue (driver `database` / `sync`), queue `otp` |
 | Integrasi       | WhatsApp Gateway REST API (Go)                        |
 | Penyimpanan     | S3-compatible (Backblaze B2, Cloudflare R2, AWS S3)   |
 | Database        | SQLite (dev), PostgreSQL/MySQL (prod)                 |
@@ -30,8 +32,9 @@ Aplikasi web berbasis **Laravel 13** dan **Livewire 4** untuk mengelola data war
 - PHP 8.3+
 - Composer
 - Node.js & npm
-- Layanan WhatsApp Gateway aktif bila ingin memakai fitur kirim pesan WhatsApp
-- Kredensial SMTP Brevo aktif bila ingin memakai fitur kirim email dashboard
+- Layanan WhatsApp Gateway aktif bila ingin memakai fitur kirim pesan WhatsApp / OTP via WhatsApp
+- Kredensial SMTP Brevo aktif bila ingin memakai fitur kirim email dashboard / OTP via email
+- Queue worker aktif (`php artisan queue:work --queue=otp,default`) agar pengiriman OTP diproses
 
 ## Instalasi
 
@@ -65,23 +68,38 @@ Build aset untuk produksi:
 npm run build
 ```
 
+Menjalankan queue worker (wajib untuk pengiriman OTP):
+
+```bash
+php artisan queue:work --queue=otp,default
+```
+
 ## Struktur Direktori
 
 ```
 app/
 ├── Actions/       # Logika use-case (mis. Fortify, Livewire)
+├── Http/
+│   ├── Middleware/  # Middleware (mis. EnsureLoginOtpVerified)
+│   └── Responses/   # Custom response (mis. LoginOtpLoginResponse)
+├── Jobs/
+│   └── SendOtpJob.php   # Job pengiriman OTP via WhatsApp / email
 ├── Livewire/      # Komponen Livewire
-├── Models/        # Model Eloquent (User, Warga)
+├── Models/
+│   ├── LoginOtpChallenge.php  # Model tantangan OTP
+│   └── User.php               # Model pengguna
+├── Services/
+│   └── LoginOtpService.php    # Logika OTP (issue, verify, resend)
 routes/
 ├── web.php        # Rute web (memetakan langsung ke komponen Livewire)
 └── settings.php   # Rute halaman pengaturan
 database/
-├── migrations/    # Skema database
+├── migrations/    # Skema database (termasuk login_otp_challenges)
 ├── factories/     # Factory untuk testing
 └── seeders/
 resources/views/
 ├── pages/warga/    # Halaman manajemen warga
-├── pages/auth/     # Halaman autentikasi
+├── pages/auth/     # Halaman autentikasi (termasuk otp-challenge)
 ├── pages/email/    # Halaman kirim email SMTP
 └── pages/whatsapp/ # Halaman kirim pesan WhatsApp
 ```
@@ -175,6 +193,56 @@ Catatan operasional:
 
 Lihat dokumentasi lengkap gateway:
 - [`WHATSAPPGATEWAY.md`](WHATSAPPGATEWAY.md)
+
+## Konfigurasi OTP Login
+
+Fitur OTP Login mengirimkan kode 6 digit setelah login berhasil. OTP dikirim via WhatsApp (prioritas) atau email, diproses secara asinkron melalui Laravel Queue.
+
+### Variabel `.env` tambahan
+
+```env
+# Pilihan channel OTP per-user disimpan di kolom `otp_channel_preference` (nilai: 'whatsapp' atau 'email')
+# Konfigurasi WhatsApp Gateway (lihat bagian Konfigurasi WhatsApp Gateway)
+WHATSAPP_AUTH=admin:example
+WHATSAPP_IP=127.0.0.1
+WHATSAPP_PORT=3000
+WHATSAPP_DEVICE_ID=628123456789@s.whatsapp.net
+
+# Driver queue (gunakan 'database' untuk produksi, 'sync' hanya untuk dev/test)
+QUEUE_CONNECTION=database
+```
+
+### Perilaku OTP
+
+| Parameter          | Nilai default |
+| ------------------ | ------------- |
+| Panjang kode       | 6 digit       |
+| Masa berlaku       | 5 menit       |
+| Maks. percobaan    | 5 kali        |
+| Maks. kirim ulang  | 3 kali        |
+| Cooldown kirim ulang | 60 detik    |
+
+### Menjalankan Queue Worker
+
+Job OTP di-dispatch ke queue bernama **`otp`**. Worker harus dijalankan dengan opsi `--queue=otp,default` agar job diproses:
+
+```bash
+php artisan queue:work --queue=otp,default
+```
+
+> **Catatan:** Menjalankan `php artisan queue:work` tanpa `--queue` hanya memproses queue `default`, sehingga OTP tidak akan pernah terkirim dan halaman akan terus menampilkan status *mengirim*.
+
+### Endpoint
+
+- Halaman verifikasi OTP: `/auth/otp-challenge`
+
+### Alur OTP
+
+1. Pengguna login → `LoginOtpLoginResponse` mengarahkan ke `/auth/otp-challenge`.
+2. `LoginOtpService::issueChallenge()` membuat record `LoginOtpChallenge` dan men-dispatch `SendOtpJob` ke queue `otp`.
+3. Queue worker mengirim OTP via WhatsApp atau email, lalu memperbarui `sent_status` menjadi `sent` / `failed`.
+4. Halaman melakukan polling setiap 2 detik untuk memperbarui status pengiriman.
+5. Pengguna memasukkan kode → `LoginOtpService::verifyChallenge()` memvalidasi dan menandai sesi sebagai terverifikasi.
 
 ## Artisan Commands
 

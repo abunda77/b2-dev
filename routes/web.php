@@ -4,7 +4,11 @@ use Illuminate\Support\Facades\Route;
 
 Route::view('/', 'welcome')->name('home');
 
-Route::middleware(['auth', 'verified'])->group(function () {
+Route::middleware(['auth'])->group(function () {
+    Route::livewire('auth/otp-challenge', 'pages::auth.otp-challenge')->name('otp.challenge');
+});
+
+Route::middleware(['auth', 'verified', 'login-otp'])->group(function () {
     Route::view('dashboard', 'dashboard')->name('dashboard');
 
     Route::livewire('warga', 'pages::warga.index')->name('warga.index');
