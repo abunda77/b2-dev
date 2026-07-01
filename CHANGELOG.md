@@ -10,6 +10,7 @@ dan proyek mengikuti [Semantic Versioning](https://semver.org/lang/id/).
 ### Changed
 
 - Animasi spinning pada tombol submit saat loading ([3ac4eb4](https://github.com/laravel/livewire-starter-kit/commit/3ac4eb4))
+- Sinkronisasi changelog dengan status git terkini
 
 ### Added
 
