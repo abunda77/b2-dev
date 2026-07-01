@@ -13,6 +13,8 @@ Route::middleware(['auth'])->group(function () {
 Route::middleware(['auth', 'verified', 'login-otp'])->group(function () {
     Route::view('dashboard', 'dashboard')->name('dashboard');
 
+    Route::livewire('chat', 'pages::chat.index')->name('chat.index');
+
     Route::livewire('warga', 'pages::warga.index')->name('warga.index');
     Route::livewire('whatsapp/send-message', 'pages::whatsapp.send-message')->name('whatsapp.send-message');
     Route::livewire('email/send-message', 'pages::email.send-message')->name('email.send-message');

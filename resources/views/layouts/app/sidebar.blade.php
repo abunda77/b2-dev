@@ -15,6 +15,9 @@
                     <flux:sidebar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
                         {{ __('Dashboard') }}
                     </flux:sidebar.item>
+                    <flux:sidebar.item icon="sparkles" :href="route('chat.index')" :current="request()->routeIs('chat.*')" wire:navigate>
+                        {{ __('Chat AI') }}
+                    </flux:sidebar.item>
                     <flux:sidebar.item icon="users" :href="route('warga.index')" :current="request()->routeIs('warga.*')" wire:navigate>
                         {{ __('Warga') }}
                     </flux:sidebar.item>
