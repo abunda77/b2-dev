@@ -21,6 +21,9 @@
                     <flux:sidebar.item icon="chat-bubble-left" :href="route('whatsapp.send-message')" :current="request()->routeIs('whatsapp.*')" wire:navigate>
                         {{ __('WhatsApp') }}
                     </flux:sidebar.item>
+                    <flux:sidebar.item icon="qr-code" :href="route('qr-code.generate')" :current="request()->routeIs('qr-code.*')" wire:navigate>
+                        {{ __('Generate QR Code') }}
+                    </flux:sidebar.item>
                     <flux:sidebar.item icon="envelope" :href="route('email.send-message')" :current="request()->routeIs('email.*')" wire:navigate>
                         {{ __('Email') }}
                     </flux:sidebar.item>

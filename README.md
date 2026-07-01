@@ -11,6 +11,7 @@ Aplikasi web berbasis **Laravel 13** dan **Livewire 4** untuk mengelola data war
 - **Penyimpanan fleksibel** — disk `local`, `public`, `s3` (B2), dan `r2` (Cloudflare R2).
 - **WhatsApp Gateway** — kirim pesan WhatsApp melalui REST API gateway dengan dukungan Basic Auth, `X-Device-Id`, debug konfigurasi `.env`, dan tampilan detail error pengiriman.
 - **SMTP Email Dashboard** — kirim email SMTP Brevo dari dashboard dengan debug konfigurasi `.env` dan status pengiriman via toaster.
+- **Generate QR Code** — buat QR code dari input teks, preview hasil, dan unduh file PNG/JPG dari temporary storage lokal.
 - **UI modern** — Flux UI + TailwindCSS 4, halaman pengaturan (profil, keamanan, tampilan).
 
 ## Tech Stack
@@ -21,7 +22,7 @@ Aplikasi web berbasis **Laravel 13** dan **Livewire 4** untuk mengelola data war
 | Frontend        | Livewire 4.x, Flux UI, TailwindCSS 4, Vite, Alpine.js |
 | Autentikasi     | Laravel Fortify, Passkeys, 2FA, OTP Login             |
 | Queue           | Laravel Queue (driver `database` / `sync`), queue `otp` |
-| Integrasi       | WhatsApp Gateway REST API (Go)                        |
+| Integrasi       | WhatsApp Gateway REST API (Go), QR Code Generator     |
 | Penyimpanan     | S3-compatible (Backblaze B2, Cloudflare R2, AWS S3)   |
 | Database        | SQLite (dev), PostgreSQL/MySQL (prod)                 |
 | Testing         | PHPUnit 12.x                                          |
@@ -89,19 +90,22 @@ app/
 │   ├── LoginOtpChallenge.php  # Model tantangan OTP
 │   └── User.php               # Model pengguna
 ├── Services/
-│   └── LoginOtpService.php    # Logika OTP (issue, verify, resend)
+│   ├── LoginOtpService.php         # Logika OTP (issue, verify, resend)
+│   └── QrCodeTemporaryFileService.php # Generator + file temporary QR code
 routes/
 ├── web.php        # Rute web (memetakan langsung ke komponen Livewire)
-└── settings.php   # Rute halaman pengaturan
+├── settings.php   # Rute halaman pengaturan
+└── console.php    # Command artisan + schedule cleanup temporary
 database/
 ├── migrations/    # Skema database (termasuk login_otp_challenges)
 ├── factories/     # Factory untuk testing
 └── seeders/
 resources/views/
-├── pages/warga/    # Halaman manajemen warga
-├── pages/auth/     # Halaman autentikasi (termasuk otp-challenge)
-├── pages/email/    # Halaman kirim email SMTP
-└── pages/whatsapp/ # Halaman kirim pesan WhatsApp
+├── pages/warga/      # Halaman manajemen warga
+├── pages/auth/       # Halaman autentikasi (termasuk otp-challenge)
+├── pages/email/      # Halaman kirim email SMTP
+├── pages/qr-code/    # Halaman generate QR code
+└── pages/whatsapp/   # Halaman kirim pesan WhatsApp
 ```
 
 ## Konfigurasi Penyimpanan
@@ -194,6 +198,22 @@ Catatan operasional:
 Lihat dokumentasi lengkap gateway:
 - [`WHATSAPPGATEWAY.md`](WHATSAPPGATEWAY.md)
 
+## Generate QR Code
+
+Fitur generate QR code tersedia dari sidebar dashboard. Pengguna memasukkan teks, lalu aplikasi membuat preview QR code dan menyediakan unduhan siap pakai dalam format PNG dan JPG.
+
+Endpoint aplikasi:
+- Halaman generate QR code: `/qr-code/generate`
+- Download PNG/JPG temporary: `/qr-code/download/{filename}`
+
+Penyimpanan temporary QR code:
+- File disimpan sementara pada disk `local` di direktori `qr-codes-tmp`.
+- File tidak disimpan permanen.
+- File dapat dihapus manual dari halaman melalui tombol **Hapus Temporary**.
+- File lama ikut dibersihkan oleh command `php artisan livewire:clear-tmp`.
+- Schedule harian menjalankan cleanup otomatis untuk file temporary.
+
+
 ## Konfigurasi OTP Login
 
 Fitur OTP Login mengirimkan kode 6 digit setelah login berhasil. OTP dikirim via WhatsApp (prioritas) atau email, diproses secara asinkron melalui Laravel Queue.
@@ -248,7 +268,7 @@ php artisan queue:work --queue=otp,default
 
 ### `livewire:clear-tmp`
 
-Menghapus file temporary upload Livewire secara manual.
+Menghapus file temporary upload Livewire secara manual. Command ini juga membersihkan file temporary QR code yang sudah kedaluwarsa.
 
 ```bash
 # Hapus file temporary yang lebih tua dari 24 jam (default)
