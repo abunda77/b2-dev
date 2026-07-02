@@ -12,8 +12,10 @@ Aplikasi web berbasis **Laravel 13** dan **Livewire 4** untuk mengelola data war
 - **WhatsApp Gateway** — kirim pesan WhatsApp melalui REST API gateway dengan dukungan Basic Auth, `X-Device-Id`, debug konfigurasi `.env`, dan tampilan detail error pengiriman.
 - **SMTP Email Dashboard** — kirim email SMTP Brevo dari dashboard dengan debug konfigurasi `.env` dan status pengiriman via toaster.
 - **Generate QR Code** — buat QR code dari input teks, preview hasil, dan unduh file PNG/JPG dari temporary storage lokal.
+- **Cetak Faktur / Invoice PDF** — buat faktur dengan item dinamis, total otomatis, terbilang rupiah, pilihan ukuran kertas, upload logo, preview PDF, riwayat faktur, dan penyimpanan file ke Backblaze B2.
 - **AI Chatbot** — percakapan AI multi-provider (OpenAI, Anthropic, Gemini, 9Router, dll.) dengan dukungan lampiran file, percakapan berkelanjutan, dan pemilihan model dinamis via `laravel/ai`.
 - **UI modern** — Flux UI + TailwindCSS 4, halaman pengaturan (profil, keamanan, tampilan).
+
 
 ## Tech Stack
 
@@ -23,7 +25,7 @@ Aplikasi web berbasis **Laravel 13** dan **Livewire 4** untuk mengelola data war
 | Frontend        | Livewire 4.x, Flux UI, TailwindCSS 4, Vite, Alpine.js |
 | Autentikasi     | Laravel Fortify, Passkeys, 2FA, OTP Login             |
 | Queue           | Laravel Queue (driver `database` / `sync`), queue `otp` |
-| Integrasi       | WhatsApp Gateway REST API (Go), QR Code Generator, Laravel AI (chatbot) |
+| Integrasi       | WhatsApp Gateway REST API (Go), QR Code Generator, Faktur PDF Generator, Laravel AI (chatbot) |
 | Penyimpanan     | S3-compatible (Backblaze B2, Cloudflare R2, AWS S3)   |
 | Database        | SQLite (dev), PostgreSQL/MySQL (prod)                 |
 | Testing         | PHPUnit 12.x                                          |
@@ -219,6 +221,22 @@ Penyimpanan temporary QR code:
 - File lama ikut dibersihkan oleh command `php artisan livewire:clear-tmp`.
 - Schedule harian menjalankan cleanup otomatis untuk file temporary.
 
+## Cetak Faktur / Invoice PDF
+
+Fitur cetak faktur tersedia dari sidebar dashboard. Pengguna dapat mengisi nama pelanggan, daftar item dinamis, qty, harga satuan, memo, logo opsional, dan ukuran kertas. Total dihitung otomatis, nilai terbilang rupiah dapat digenerate otomatis, lalu hasil PDF disimpan ke Backblaze B2 dan ditampilkan kembali sebagai preview.
+
+Endpoint aplikasi:
+- Halaman generate faktur: `/faktur/generate`
+
+Kemampuan utama:
+- Tambah/hapus item tagihan secara dinamis.
+- Hitung subtotal per item dan grand total otomatis.
+- Generate terbilang rupiah otomatis dari total nominal.
+- Pilihan ukuran PDF: `a4`, `half_a4`, dan `third_a4`.
+- Upload logo opsional untuk ditampilkan pada faktur.
+- Preview PDF terakhir lewat signed temporary URL.
+- Riwayat faktur tersimpan dan bisa diunduh ulang atau dihapus.
+- File PDF dan logo disimpan pada disk `b2`.
 
 ## Konfigurasi AI Chatbot
 

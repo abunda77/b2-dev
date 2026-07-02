@@ -10,10 +10,14 @@ dan proyek mengikuti [Semantic Versioning](https://semver.org/lang/id/).
 ### Changed
 
 - Animasi spinning pada tombol submit saat loading ([3ac4eb4](https://github.com/laravel/livewire-starter-kit/commit/3ac4eb4))
-- Sinkronisasi changelog dengan status git terkini
+- Update dokumentasi `Laravel13.md` dan integrasi Laravel SDK ([0ded6cd](https://github.com/laravel/livewire-starter-kit/commit/0ded6cd))
+- Sinkronisasi changelog dengan status git terkini ([ddab39a](https://github.com/laravel/livewire-starter-kit/commit/ddab39a))
 
 ### Added
 
+- Fitur cetak invoice / faktur PDF dengan preview, riwayat, upload logo, dan penyimpanan B2 ([42a64d5](https://github.com/laravel/livewire-starter-kit/commit/42a64d5))
+- Fitur AI chatbot multi-provider beserta provider config dan perbaikan 9Router ([a922fbb](https://github.com/laravel/livewire-starter-kit/commit/a922fbb))
+- Fitur generate QR code ([5ae108f](https://github.com/laravel/livewire-starter-kit/commit/5ae108f))
 - OTP challenge untuk verifikasi login ([f2103b7](https://github.com/laravel/livewire-starter-kit/commit/f2103b7))
 - Konfigurasi mail service Brevo ([4b8ae34](https://github.com/laravel/livewire-starter-kit/commit/4b8ae34))
 - Panduan integrasi Brevo ([a17c396](https://github.com/laravel/livewire-starter-kit/commit/a17c396))
