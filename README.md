@@ -12,6 +12,7 @@ Aplikasi web berbasis **Laravel 13** dan **Livewire 4** untuk mengelola data war
 - **WhatsApp Gateway** — kirim pesan WhatsApp melalui REST API gateway dengan dukungan Basic Auth, `X-Device-Id`, debug konfigurasi `.env`, dan tampilan detail error pengiriman.
 - **SMTP Email Dashboard** — kirim email SMTP Brevo dari dashboard dengan debug konfigurasi `.env` dan status pengiriman via toaster.
 - **Generate QR Code** — buat QR code dari input teks, preview hasil, dan unduh file PNG/JPG dari temporary storage lokal.
+- **AI Chatbot** — percakapan AI multi-provider (OpenAI, Anthropic, Gemini, 9Router, dll.) dengan dukungan lampiran file, percakapan berkelanjutan, dan pemilihan model dinamis via `laravel/ai`.
 - **UI modern** — Flux UI + TailwindCSS 4, halaman pengaturan (profil, keamanan, tampilan).
 
 ## Tech Stack
@@ -22,7 +23,7 @@ Aplikasi web berbasis **Laravel 13** dan **Livewire 4** untuk mengelola data war
 | Frontend        | Livewire 4.x, Flux UI, TailwindCSS 4, Vite, Alpine.js |
 | Autentikasi     | Laravel Fortify, Passkeys, 2FA, OTP Login             |
 | Queue           | Laravel Queue (driver `database` / `sync`), queue `otp` |
-| Integrasi       | WhatsApp Gateway REST API (Go), QR Code Generator     |
+| Integrasi       | WhatsApp Gateway REST API (Go), QR Code Generator, Laravel AI (chatbot) |
 | Penyimpanan     | S3-compatible (Backblaze B2, Cloudflare R2, AWS S3)   |
 | Database        | SQLite (dev), PostgreSQL/MySQL (prod)                 |
 | Testing         | PHPUnit 12.x                                          |
@@ -80,6 +81,10 @@ php artisan queue:work --queue=otp,default
 ```
 app/
 ├── Actions/       # Logika use-case (mis. Fortify, Livewire)
+├── Ai/
+│   ├── Agents/    # AI agent (ChatAgent)
+│   ├── Gateways/  # Custom AI gateway (NineRouterGateway)
+│   └── Providers/ # Custom AI provider (NineRouterProvider)
 ├── Http/
 │   ├── Middleware/  # Middleware (mis. EnsureLoginOtpVerified)
 │   └── Responses/   # Custom response (mis. LoginOtpLoginResponse)
@@ -105,7 +110,8 @@ resources/views/
 ├── pages/auth/       # Halaman autentikasi (termasuk otp-challenge)
 ├── pages/email/      # Halaman kirim email SMTP
 ├── pages/qr-code/    # Halaman generate QR code
-└── pages/whatsapp/   # Halaman kirim pesan WhatsApp
+├── pages/whatsapp/   # Halaman kirim pesan WhatsApp
+└── pages/chat/       # Halaman chatbot AI
 ```
 
 ## Konfigurasi Penyimpanan
@@ -212,6 +218,75 @@ Penyimpanan temporary QR code:
 - File dapat dihapus manual dari halaman melalui tombol **Hapus Temporary**.
 - File lama ikut dibersihkan oleh command `php artisan livewire:clear-tmp`.
 - Schedule harian menjalankan cleanup otomatis untuk file temporary.
+
+
+## Konfigurasi AI Chatbot
+
+Fitur chatbot memakai `laravel/ai` dengan multi-provider. Konfigurasi dibaca dari `config/ai.php` dan `config/ai-chat.php`.
+
+### Variabel `.env`
+
+```env
+# Provider default
+AI_CHAT_DEFAULT_PROVIDER=openai
+AI_CHAT_DEFAULT_MODEL=gpt-4o
+AI_CHAT_SYSTEM_PROMPT="You are a helpful AI assistant."
+
+# OpenAI
+OPENAI_API_KEY=sk-...
+
+# Anthropic
+ANTHROPIC_API_KEY=sk-ant-...
+
+# 9Router (OpenAI-compatible proxy)
+NINEROUTER_API_KEY=sk-...
+NINEROUTER_URL=http://localhost:20128/v1
+NINEROUTER_MODELS=CHINAMOD
+```
+
+### Provider & Model
+
+Provider dan model yang tersedia didefinisikan di `config/ai-chat.php`. Provider tanpa API key otomatis disembunyikan dari UI.
+
+| Provider       | Driver         | Endpoint API         |
+| -------------- | -------------- | -------------------- |
+| OpenAI         | `openai`       | Responses API        |
+| Anthropic      | `anthropic`    | Messages API         |
+| Gemini         | `gemini`       | GenerateContent API  |
+| DeepSeek       | `deepseek`     | Chat Completions API |
+| Groq           | `groq`         | Chat Completions API |
+| Mistral        | `mistral`      | Chat Completions API |
+| OpenRouter     | `openrouter`   | Chat Completions API |
+| 9Router        | `9router` (custom) | Chat Completions API |
+| xAI            | `xai`          | Responses API        |
+| Ollama         | `ollama`       | Chat Completions API |
+
+### Custom Driver 9Router
+
+Provider 9Router memakai custom gateway (`NineRouterGateway`) yang extend `OpenRouterGateway` dengan menambahkan header `Accept: application/json`. Header ini diperlukan agar proxy 9Router mengembalikan response JSON valid (bukan SSE streaming) untuk request non-streaming.
+
+Custom driver di-register di `AppServiceProvider::configureAiDrivers()` via `Ai::extend('9router', ...)`.
+
+### Lampiran File
+
+Chatbot mendukung lampiran gambar dan dokumen. Validasi dikonfigurasi di `config/ai-chat.php` (`attachments`):
+
+| Parameter              | Nilai default |
+| ---------------------- | ------------- |
+| Maks. file per pesan   | 5             |
+| Maks. ukuran file      | 10 MB         |
+| Format gambar          | jpg, jpeg, png, webp, gif |
+| Format dokumen         | pdf, txt, md, csv, json, xml, doc, docx |
+
+### Endpoint
+
+- Halaman chatbot: `/chat`
+
+### Catatan Operasional
+
+- Setelah ubah `.env`, jalankan `php artisan config:clear`.
+- Model name untuk 9Router harus sesuai dengan yang tersedia di proxy (tanpa prefix `9router/`).
+- Provider yang memakai driver `openai` mengirim ke endpoint Responses API (`/responses`). Provider yang memakai driver `openrouter` atau custom `9router` mengirim ke Chat Completions API (`/chat/completions`).
 
 
 ## Konfigurasi OTP Login
