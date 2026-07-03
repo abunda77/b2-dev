@@ -1,9 +1,9 @@
 <?php
 
 use Flux\Flux;
-use Illuminate\Mail\Message;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use App\Jobs\SendEmailMessageJob;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Validate;
@@ -67,22 +67,24 @@ new #[Title('Kirim Email')] #[Layout('layouts.app')] class extends Component {
         $this->isSending = true;
 
         try {
-            Mail::mailer((string) config('mail.default'))->raw($this->message, function (Message $message): void {
-                $message->to($this->to)
-                    ->subject($this->subject);
-            });
+            SendEmailMessageJob::dispatch(
+                $this->to,
+                $this->subject,
+                $this->message,
+                (string) config('mail.default')
+            );
 
-            Flux::toast(variant: 'success', text: 'Email berhasil dikirim ke ' . $this->to);
+            Flux::toast(variant: 'success', text: 'Email berhasil dimasukkan ke antrean pengiriman untuk ' . $this->to);
             $this->reset(['to', 'subject', 'message', 'sendError']);
         } catch (\Throwable $throwable) {
-            Log::error('SMTP email send failed', [
+            Log::error('Dispatch email job failed', [
                 'to' => $this->to,
                 'subject' => $this->subject,
                 'error' => $throwable->getMessage(),
             ]);
 
             $this->sendError = $throwable->getMessage();
-            Flux::toast(variant: 'error', text: 'Gagal mengirim email. ' . $this->sendError);
+            Flux::toast(variant: 'error', text: 'Gagal memasukkan email ke antrean. ' . $this->sendError);
         } finally {
             $this->isSending = false;
         }

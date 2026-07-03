@@ -65,7 +65,7 @@ class LoginOtpService
         ]);
 
         try {
-            SendOtpJob::dispatch($challenge, $otp)->onQueue('otp');
+            SendOtpJob::dispatch($challenge, $otp);
         } catch (\Throwable $throwable) {
             $challenge->forceFill([
                 'sent_status' => 'failed',
@@ -119,7 +119,7 @@ class LoginOtpService
         $challenge->loadMissing('user');
 
         try {
-            SendOtpJob::dispatch($challenge, $otp)->onQueue('otp');
+            SendOtpJob::dispatch($challenge, $otp);
         } catch (\Throwable $throwable) {
             $challenge->forceFill([
                 'sent_status' => 'failed',

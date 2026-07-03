@@ -2,12 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\SendEmailMessageJob;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Mail\Message;
-use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
-use Symfony\Component\Mime\Email;
 use Tests\TestCase;
 
 class SendEmailMessageTest extends TestCase
@@ -122,24 +121,7 @@ class SendEmailMessageTest extends TestCase
 
     public function test_dapat_mengirim_email_dari_dashboard(): void
     {
-        Mail::shouldReceive('mailer')
-            ->once()
-            ->with('smtp')
-            ->andReturnSelf();
-
-        Mail::shouldReceive('raw')
-            ->once()
-            ->withArgs(function (string $message, \Closure $callback): bool {
-                if ($message !== 'Isi email test') {
-                    return false;
-                }
-
-                $mailMessage = new Message(new Email);
-                $callback($mailMessage);
-
-                return $mailMessage->getTo()[0]->getAddress() === 'penerima@contohdomain.com'
-                    && $mailMessage->getSubject() === 'Subjek Test';
-            });
+        Queue::fake();
 
         config()->set('mail.default', 'smtp');
         config()->set('mail.mailers.smtp.host', 'smtp-relay.brevo.com');
@@ -160,5 +142,12 @@ class SendEmailMessageTest extends TestCase
             ->assertSet('to', '')
             ->assertSet('subject', '')
             ->assertSet('message', '');
+
+        Queue::assertPushed(SendEmailMessageJob::class, function (SendEmailMessageJob $job): bool {
+            return $job->to === 'penerima@contohdomain.com'
+                && $job->subject === 'Subjek Test'
+                && $job->message === 'Isi email test'
+                && $job->mailer === 'smtp';
+        });
     }
 }
