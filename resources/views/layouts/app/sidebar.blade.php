@@ -12,25 +12,46 @@
 
             <flux:sidebar.nav>
                 <flux:sidebar.group :heading="__('Platform')" class="grid">
-                    <flux:sidebar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
+                    <flux:sidebar.item :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
+                        <x-slot:icon>
+                            <flux:icon.home variant="solid" class="text-blue-400! size-5!" />
+                        </x-slot:icon>
                         {{ __('Dashboard') }}
                     </flux:sidebar.item>
-                    <flux:sidebar.item icon="sparkles" :href="route('chat.index')" :current="request()->routeIs('chat.*')" wire:navigate>
+                    <flux:sidebar.item :href="route('chat.index')" :current="request()->routeIs('chat.*')" wire:navigate>
+                        <x-slot:icon>
+                            <flux:icon.sparkles variant="solid" class="text-purple-400! size-5!" />
+                        </x-slot:icon>
                         {{ __('Chat AI') }}
                     </flux:sidebar.item>
-                    <flux:sidebar.item icon="users" :href="route('warga.index')" :current="request()->routeIs('warga.*')" wire:navigate>
+                    <flux:sidebar.item :href="route('warga.index')" :current="request()->routeIs('warga.*')" wire:navigate>
+                        <x-slot:icon>
+                            <flux:icon.users variant="solid" class="text-emerald-400! size-5!" />
+                        </x-slot:icon>
                         {{ __('Warga') }}
                     </flux:sidebar.item>
-                    <flux:sidebar.item icon="chat-bubble-left" :href="route('whatsapp.send-message')" :current="request()->routeIs('whatsapp.*')" wire:navigate>
+                    <flux:sidebar.item :href="route('whatsapp.send-message')" :current="request()->routeIs('whatsapp.*')" wire:navigate>
+                        <x-slot:icon>
+                            <flux:icon.chat-bubble-left variant="solid" class="text-green-500! size-5!" />
+                        </x-slot:icon>
                         {{ __('WhatsApp') }}
                     </flux:sidebar.item>
-                    <flux:sidebar.item icon="qr-code" :href="route('qr-code.generate')" :current="request()->routeIs('qr-code.*')" wire:navigate>
+                    <flux:sidebar.item :href="route('qr-code.generate')" :current="request()->routeIs('qr-code.*')" wire:navigate>
+                        <x-slot:icon>
+                            <flux:icon.qr-code variant="solid" class="text-amber-400! size-5!" />
+                        </x-slot:icon>
                         {{ __('Generate QR Code') }}
                     </flux:sidebar.item>
-                    <flux:sidebar.item icon="envelope" :href="route('email.send-message')" :current="request()->routeIs('email.*')" wire:navigate>
+                    <flux:sidebar.item :href="route('email.send-message')" :current="request()->routeIs('email.*')" wire:navigate>
+                        <x-slot:icon>
+                            <flux:icon.envelope variant="solid" class="text-rose-400! size-5!" />
+                        </x-slot:icon>
                         {{ __('Email') }}
                     </flux:sidebar.item>
-                    <flux:sidebar.item icon="document-text" :href="route('faktur.generate')" :current="request()->routeIs('faktur.*')" wire:navigate>
+                    <flux:sidebar.item :href="route('faktur.generate')" :current="request()->routeIs('faktur.*')" wire:navigate>
+                        <x-slot:icon>
+                            <flux:icon.document-text variant="solid" class="text-amber-600! size-5!" />
+                        </x-slot:icon>
                         {{ __('Cetak Faktur') }}
                     </flux:sidebar.item>
                 </flux:sidebar.group>

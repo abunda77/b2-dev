@@ -31,8 +31,10 @@ class WargaCrudTest extends TestCase
 
     public function test_halaman_warga_dapat_diakses_user_terautentikasi(): void
     {
-        $this->actingAs($this->user)
-            ->get(route('warga.index'))
+        $this->actingAs($this->user);
+        session()->put('auth.pending_otp_passed', true);
+
+        $this->get(route('warga.index'))
             ->assertOk();
     }
 
@@ -237,8 +239,10 @@ class WargaCrudTest extends TestCase
 
     public function test_route_warga_dapat_diakses(): void
     {
-        $this->actingAs($this->user)
-            ->get('/warga')
+        $this->actingAs($this->user);
+        session()->put('auth.pending_otp_passed', true);
+
+        $this->get('/warga')
             ->assertOk();
     }
 }

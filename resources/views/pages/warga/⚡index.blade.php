@@ -378,9 +378,10 @@ new #[Title('Data Warga')] #[Layout('layouts.app')] class extends Component {
                             {{-- Pas Foto --}}
                             <flux:table.cell>
                                 @if ($warga->pas_foto)
-                                    <a href="{{ Storage::disk('b2')->url($warga->pas_foto) }}" target="_blank" class="block">
+                                    @php($pasFotoUrl = $warga->pas_foto_url)
+                                    <a href="{{ $pasFotoUrl }}" target="_blank" class="block">
                                         <img
-                                            src="{{ Storage::disk('b2')->url($warga->pas_foto) }}"
+                                            src="{{ $pasFotoUrl }}"
                                             alt="Pas foto {{ $warga->nama }}"
                                             class="h-12 w-10 rounded object-cover ring-1 ring-zinc-200 dark:ring-zinc-700"
                                         />
@@ -416,7 +417,7 @@ new #[Title('Data Warga')] #[Layout('layouts.app')] class extends Component {
                                         size="sm"
                                         icon="arrow-down-tray"
                                         variant="ghost"
-                                        :href="Storage::disk('b2')->url($warga->dokumen)"
+                                        :href="$warga->dokumen_url"
                                         target="_blank"
                                     >
                                         {{ __('Lihat') }}
@@ -539,7 +540,7 @@ new #[Title('Data Warga')] #[Layout('layouts.app')] class extends Component {
                     @if ($editingId && $existingPasFoto && !$pasFoto)
                         <div class="mb-2 flex items-center gap-3">
                             <img
-                                src="{{ Storage::disk('b2')->url($existingPasFoto) }}"
+                                src="{{ \App\Models\Warga::b2Url($existingPasFoto) }}"
                                 alt="Pas foto saat ini"
                                 class="h-16 w-14 rounded-md object-cover ring-1 ring-zinc-300 dark:ring-zinc-600"
                             />

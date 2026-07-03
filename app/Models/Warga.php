@@ -5,6 +5,7 @@ namespace App\Models;
 use Database\Factories\WargaFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Storage;
 
 class Warga extends Model
 {
@@ -34,11 +35,26 @@ class Warga extends Model
     ];
 
     /**
+     * Build a public URL for a B2 storage path without instantiating
+     * the AWS S3 client (~230ms saved per request on first call).
+     */
+    public static function b2Url(string $path): string
+    {
+        $base = config('filesystems.disks.b2.url');
+
+        if ($base) {
+            return rtrim((string) $base, '/').'/'.ltrim($path, '/');
+        }
+
+        return Storage::disk('b2')->url($path);
+    }
+
+    /**
      * Get the full URL for the pas foto.
      */
     public function getPasFotoUrlAttribute(): string
     {
-        return \Storage::url($this->pas_foto);
+        return self::b2Url($this->pas_foto);
     }
 
     /**
@@ -46,6 +62,6 @@ class Warga extends Model
      */
     public function getDokumenUrlAttribute(): ?string
     {
-        return $this->dokumen ? \Storage::url($this->dokumen) : null;
+        return $this->dokumen ? self::b2Url($this->dokumen) : null;
     }
 }

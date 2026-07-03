@@ -20,6 +20,7 @@ class DashboardTest extends TestCase
     {
         $user = User::factory()->create();
         $this->actingAs($user);
+        $this->withSession(['auth.pending_otp_passed' => true]);
 
         $response = $this->get(route('dashboard'));
         $response->assertOk();
