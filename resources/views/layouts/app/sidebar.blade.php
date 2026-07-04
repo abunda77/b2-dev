@@ -60,6 +60,12 @@
                         </x-slot:icon>
                         {{ __('Cetak Faktur') }}
                     </flux:sidebar.item>
+                    <flux:sidebar.item :href="route('docs.index')" :current="request()->routeIs('docs.*')" wire:navigate>
+                        <x-slot:icon>
+                            <flux:icon.book-open variant="solid" class="text-indigo-400! size-5!" />
+                        </x-slot:icon>
+                        {{ __('Docs') }}
+                    </flux:sidebar.item>
                 </flux:sidebar.group>
             </flux:sidebar.nav>
 

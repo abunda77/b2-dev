@@ -14,6 +14,7 @@ Aplikasi web berbasis **Laravel 13** dan **Livewire 4** untuk mengelola data war
 - **Generate QR Code** — buat QR code dari input teks, preview hasil, dan unduh file PNG/JPG dari temporary storage lokal.
 - **Cetak Faktur / Invoice PDF** — buat faktur dengan item dinamis, total otomatis, terbilang rupiah, pilihan ukuran kertas, upload logo, preview PDF, riwayat faktur, dan penyimpanan file ke Backblaze B2.
 - **AI Chatbot** — percakapan AI multi-provider (OpenAI, Anthropic, Gemini, 9Router, dll.) dengan dukungan lampiran file, percakapan berkelanjutan, dan pemilihan model dinamis via `laravel/ai`.
+- **Markdown Reader (Docs)** — viewer dokumen Markdown dengan sidebar + preview, upload file `.md`, sync otomatis dari root project dan folder `docs/`, rendering GFM via `league/commonmark`, dan download dokumen.
 - **UI modern** — Flux UI + TailwindCSS 4, halaman pengaturan (profil, keamanan, tampilan).
 
 
@@ -25,7 +26,7 @@ Aplikasi web berbasis **Laravel 13** dan **Livewire 4** untuk mengelola data war
 | Frontend        | Livewire 4.x, Flux UI, TailwindCSS 4, Vite, Alpine.js |
 | Autentikasi     | Laravel Fortify, Passkeys, 2FA, OTP Login             |
 | Queue           | Laravel Queue (driver `database` / `sync`), queue `otp` |
-| Integrasi       | WhatsApp Gateway REST API (Go), QR Code Generator, Faktur PDF Generator, Laravel AI (chatbot) |
+| Integrasi       | WhatsApp Gateway REST API (Go), QR Code Generator, Faktur PDF Generator, Laravel AI (chatbot), league/commonmark (Markdown) |
 | Penyimpanan     | S3-compatible (Backblaze B2, Cloudflare R2, AWS S3)   |
 | Database        | SQLite (dev), PostgreSQL/MySQL (prod)                 |
 | Testing         | PHPUnit 12.x                                          |
@@ -94,10 +95,12 @@ app/
 │   └── SendOtpJob.php   # Job pengiriman OTP via WhatsApp / email
 ├── Livewire/      # Komponen Livewire
 ├── Models/
+│   ├── Document.php               # Model dokumen Markdown (Docs)
 │   ├── LoginOtpChallenge.php  # Model tantangan OTP
 │   └── User.php               # Model pengguna
 ├── Services/
 │   ├── LoginOtpService.php         # Logika OTP (issue, verify, resend)
+│   ├── MarkdownRendererService.php # Render Markdown ke HTML (league/commonmark)
 │   └── QrCodeTemporaryFileService.php # Generator + file temporary QR code
 routes/
 ├── web.php        # Rute web (memetakan langsung ke komponen Livewire)
@@ -113,7 +116,8 @@ resources/views/
 ├── pages/email/      # Halaman kirim email SMTP
 ├── pages/qr-code/    # Halaman generate QR code
 ├── pages/whatsapp/   # Halaman kirim pesan WhatsApp
-└── pages/chat/       # Halaman chatbot AI
+├── pages/chat/       # Halaman chatbot AI
+└── pages/docs/       # Halaman Markdown Reader (Docs)
 ```
 
 ## Konfigurasi Penyimpanan
@@ -237,6 +241,29 @@ Kemampuan utama:
 - Preview PDF terakhir lewat signed temporary URL.
 - Riwayat faktur tersimpan dan bisa diunduh ulang atau dihapus.
 - File PDF dan logo disimpan pada disk `b2`.
+
+## Markdown Reader (Docs)
+
+Fitur Docs menyediakan viewer dokumen Markdown dengan layout sidebar + preview. Dokumen bisa berasal dari tiga sumber: file `.md` di root project, folder `docs/`, atau upload manual dari komputer.
+
+Endpoint aplikasi:
+- Halaman Docs: `/docs`
+
+Kemampuan utama:
+- Sidebar daftar dokumen dengan ikon sumber (Project, docs/, Upload).
+- Preview konten Markdown dirender ke HTML menggunakan `league/commonmark` v2.
+- Dukungan GitHub Flavored Markdown (GFM): tabel, task list, autolink, strikethrough.
+- Heading Permalink dan Table of Contents (placeholder `[TOC]`).
+- Upload file `.md` / `.markdown` (maks. 2 MB) dengan judul otomatis dari heading pertama.
+- Tombol **Sync** untuk memperbarui daftar file dari root project dan folder `docs/`.
+- Download dokumen sebagai file Markdown.
+- Hapus dokumen upload (file project bersifat read-only dari UI).
+- Styling konten dengan `@tailwindcss/typography` (kelas `prose`), mendukung dark mode.
+
+File upload disimpan di disk `local` (`storage/app/documents/`). File project root dan `docs/` dibaca langsung dari filesystem tanpa disalin ke storage.
+
+Lihat panduan lengkap:
+- [`PANDUAN-MARKDOWN-READER.md`](PANDUAN-MARKDOWN-READER.md)
 
 ## Konfigurasi AI Chatbot
 

@@ -14,20 +14,28 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Code Quality:**
 - Format code: `vendor/bin/pint --dirty --format agent` (after editing PHP files)
-- Run Pint tests: `vendor/bin/pint --parallel --test` (never needed)
+- Lint check (no write): `composer run lint:check` (= `pint --parallel --test`)
 
 **Testing:**
-- Run all tests: `php artisan test --compact` (or `composer run test`)
+- Run all tests: `php artisan test --compact`
 - Run specific test: `php artisan test --compact tests/Feature/ExampleTest.php --filter=testName`
 - Run single test: `php artisan test tests/Feature/ExampleTest.php::testName --compact`
 - Create test: `php artisan make:test --phpunit {name}`
+- PHPUnit env (phpunit.xml): SQLite `:memory:`, `QUEUE_CONNECTION=sync`, `CACHE_STORE=array`, `MAIL_MAILER=array` — no external services needed.
+
+**Composer scripts** (see `composer.json`):
+- `composer run setup` — full first-run (install, key:generate, migrate, npm install, build)
+- `composer run dev` — `php artisan dev` (PHP server + Vite concurrently, timeout disabled)
+- `composer run test` — **NOT** equivalent to `php artisan test`: runs `config:clear` → `lint:check` (Pint) → `types:check` (PHPStan) → `php artisan test`. Use for full pre-commit gate; use `php artisan test --compact` for fast iteration.
+- `composer run lint` / `lint:check` / `ci:check` / `types:check`
 
 **Static Analysis:**
-- Run PHPStan: `php artisan types:check` or `composer run types:check`
+- Run PHPStan: `php artisan types:check` or `composer run types:check` (Larastan level 7 over `app/`, `bootstrap/app.php`, `config/`, `database/`, `routes/`)
 
-**Queue (required for OTP delivery):**
+**Queue (required for OTP & email delivery):**
 - Worker must listen on the `otp` queue or OTP codes will never send: `php artisan queue:work --queue=otp,default`
-- `QUEUE_CONNECTION=database` in prod; `sync` is fine for dev/test.
+- `QUEUE_CONNECTION=database` in prod; `sync` is fine for dev/test (and is the PHPUnit default).
+- `SendOtpJob` (queue `otp`) and `SendEmailMessageJob` are the async dispatch points.
 
 **Artisan:**
 - Use `php artisan list` to see commands, `php artisan [command] --help` for params
@@ -39,33 +47,50 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **Tech Stack:**
 - Laravel 13.x + PHP 8.3
 - Livewire 4.x + TailwindCSS 4 + Flux UI (Frontend: Vite + Alpine.js)
+- `livewire/blaze` for Blade render optimization (see `/blaze-optimize` skill)
+- `barryvdh/laravel-dompdf` for PDF generation (faktur/invoice)
+- `laravel/ai` for AI chatbot (multi-provider)
 - Storage: S3-compatible (Backblaze B2, Cloudflare R2, or AWS S3)
 - Database: SQLite (dev), PostgreSQL/MySQL (prod)
-- Auth: Laravel Fortify + Passkeys
+- Auth: Laravel Fortify + Passkeys (`@laravel/passkeys`)
 - Testing: PHPUnit 12.x
-- Code Quality: Laravel Pint, Larastan
+- Code Quality: Laravel Pint, Larastan (PHPStan level 7)
 
 **Directory Structure:**
 ```
 app/
 ├── Actions/       # Use-case based class groups for Livewire logic
-├── Concerns/      # Shared logic traits
-├── Console/       # Artisan commands
-├── Http/          # Controllers, request classes, form requests
-├── Livewire/      # Components (use well-structured Actions pattern)
-├── Models/        # Eloquent models (include factories/seeders)
-├── Providers/     # Service providers
+├── Ai/            # AI agents, gateways, providers (9router custom driver)
+├── Concerns/      # Shared logic traits (PasswordValidationRules, etc.)
+├── Console/       # Artisan commands (CleanupLivewireTemporaryUploads, TestB2Connection)
+├── Helpers/       # Standalone helpers (Terbilang = rupiah spelling)
+├── Http/          # Controllers, request classes, middleware, responses
+├── Jobs/          # Async jobs (SendOtpJob, SendEmailMessageJob)
+├── Livewire/      # Components (only Actions/Logout.php as conventional class)
+├── Models/        # Eloquent models (User, Warga, Note, Faktur, LoginOtpChallenge)
+├── Providers/     # Service providers (AppServiceProvider configures AI + defaults)
+├── Services/      # Domain services (AiChat/, FakturPdfService, LoginOtpService, QrCodeTemporaryFileService)
 routes/
-├── web.php        # Web routes (Livewire classes)
-└── console.php    # Artisan commands
+├── web.php        # Web routes (Livewire classes) — also requires settings.php
+├── settings.php   # Settings routes (profile/security/appearance + passkey well-known)
+└── console.php    # Artisan commands + schedule (livewire:clear-tmp daily)
 database/
 ├── migrations/
 ├── seeders/
 └── factories/
 tests/
-├── Feature/
+├── Feature/       # PHPUnit feature tests (per-feature: Warga, Faktur, Note, Chat, etc.)
 └── Unit/
 ```
+
+**Feature Inventory (core domains):**
+- **Warga** — main data management (NIK, name, address, photo, docs) at `pages/warga/`
+- **Notes** — note CRUD at `pages/notes/` (`app/Models/Note.php`)
+- **Faktur/Invoice** — PDF invoice generator at `pages/faktur/` using `FakturPdfService` (dompdf), output to disk `b2`
+- **QR Code** — generator at `pages/qr-code/` using `QrCodeTemporaryFileService` (temp files on disk `local` in `qr-codes-tmp/`, cleaned by `livewire:clear-tmp`)
+- **WhatsApp Gateway** — send messages via external REST gateway; config in `config/whatsapp.php` (Basic Auth, `X-Device-Id` header)
+- **SMTP Email Dashboard** — send email via Brevo SMTP; `SendEmailMessageJob` for async dispatch
+- **AI Chatbot** — multi-provider chat at `pages/chat/` via `laravel/ai` (see below)
 
 **Livewire Architecture:**
 - Livewire components in `app/Livewire/`
@@ -79,6 +104,13 @@ tests/
 - The Blade file begins with `<?php` + `use` statements, then `new #[Layout('layouts.app')] class extends Component { ... }`.
 - There is **no** matching class under `app/Livewire/` for these — the class lives only in the Blade file. `app/Livewire/Actions/Logout.php` is the only conventional component class.
 - When adding a new page: create the `⚡<name>.blade.php` file and register a `Route::livewire(...)` entry in `routes/web.php` (or `routes/settings.php`).
+
+**Routing & Bootstrap (`bootstrap/app.php`):**
+- Routing loads `routes/web.php` + `routes/console.php`; health check at `/up`.
+- `routes/settings.php` is `require`d from `web.php` — settings routes live there.
+- Middleware alias `login-otp` → `App\Http\Middleware\EnsureLoginOtpVerified`.
+- Exceptions render JSON for `api/*` requests (`shouldRenderJsonWhen`).
+- No `api.php` routes file by default — add one via `withRouting(api: ...)` if needed.
 
 **Login OTP Flow (two-step auth after Fortify login):**
 - `AppServiceProvider::register()` binds `LoginResponse` → `LoginOtpLoginResponse` and `RegisterResponse` → `LoginOtpRegisterResponse`, so a successful Fortify login redirects to `/auth/otp-challenge` instead of the dashboard.
