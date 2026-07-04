@@ -26,6 +26,9 @@ new #[Title('Chat AI')] #[Layout('layouts.app')] class extends Component {
     #[Validate(['required', 'string', 'max:5000'])]
     public string $message = '';
 
+    #[Validate(['nullable', 'string', 'max:5000'])]
+    public ?string $systemPrompt = '';
+
     #[Validate(['nullable', 'array', 'max:5'])]
     public array $attachments = [];
 
@@ -58,6 +61,7 @@ new #[Title('Chat AI')] #[Layout('layouts.app')] class extends Component {
     {
         return [
             'message' => 'Pesan',
+            'systemPrompt' => 'Role system',
             'attachments' => 'Lampiran',
         ];
     }
@@ -81,7 +85,7 @@ new #[Title('Chat AI')] #[Layout('layouts.app')] class extends Component {
 
     public function hasImageAttachments(): bool
     {
-        return collect($this->attachments)->contains(fn ($file) => str_starts_with($file->getClientMimeType(), 'image/'));
+        return collect($this->attachments)->contains(fn ($file) => $this->isImageAttachment($file));
     }
 
     #[Computed]
@@ -108,6 +112,7 @@ new #[Title('Chat AI')] #[Layout('layouts.app')] class extends Component {
         $this->activeConversationId = null;
         $this->chatMessages = [];
         $this->message = '';
+        $this->systemPrompt = '';
         $this->resetAttachments();
     }
 
@@ -166,7 +171,7 @@ new #[Title('Chat AI')] #[Layout('layouts.app')] class extends Component {
         $this->resetAttachments();
 
         try {
-            $agent = new ChatAgent;
+            $agent = (new ChatAgent)->withSystemPrompt($this->systemPrompt);
 
             if ($this->activeConversationId) {
                 $agent->continue($this->activeConversationId, $this->user());
@@ -237,8 +242,7 @@ new #[Title('Chat AI')] #[Layout('layouts.app')] class extends Component {
 
         return collect($this->attachments)
             ->map(function ($file) use ($supportsImages) {
-                $mime = $file->getClientMimeType();
-                $isImage = str_starts_with($mime, 'image/');
+                $isImage = $this->isImageAttachment($file);
 
                 if ($isImage && ! $supportsImages) {
                     return null;
@@ -251,6 +255,12 @@ new #[Title('Chat AI')] #[Layout('layouts.app')] class extends Component {
             ->filter()
             ->values()
             ->all();
+    }
+
+    public function isImageAttachment($file): bool
+    {
+        return str_starts_with((string) $file->getClientMimeType(), 'image/')
+            || in_array(strtolower((string) $file->getClientOriginalExtension()), config('ai-chat.attachments.allowed_image_mimes', []), true);
     }
 
     private function resetAttachments(): void
@@ -401,7 +411,7 @@ new #[Title('Chat AI')] #[Layout('layouts.app')] class extends Component {
                 <div class="mb-3 flex flex-wrap gap-2">
                     @foreach ($attachments as $index => $file)
                         <div class="flex items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-800">
-                            @if (str_starts_with($file->getClientMimeType(), 'image/'))
+                            @if ($this->isImageAttachment($file))
                                 <img src="{{ $file->temporaryUrl() }}" alt="{{ $file->getClientOriginalName() }}" class="size-8 rounded object-cover" />
                             @else
                                 <flux:icon name="document" class="size-4 text-zinc-400" />
@@ -423,52 +433,68 @@ new #[Title('Chat AI')] #[Layout('layouts.app')] class extends Component {
                 </div>
             @endif
 
-            <form wire:submit="send" class="flex items-end gap-3">
-                <flux:field class="flex-1">
+            <form wire:submit="send" class="space-y-3">
+                <flux:field>
+                    <flux:label>{{ __('Role system (opsional)') }}</flux:label>
                     <flux:textarea
-                        wire:model="message"
+                        wire:model="systemPrompt"
                         rows="2"
-                        placeholder="{{ __('Ketik pesan Anda...') }}"
+                        placeholder="{{ __('Tambahkan instruksi sistem untuk chat ini...') }}"
                         class="min-h-[44px] resize-none"
                         wire:loading.attr="disabled"
                         wire:target="send"
-                        data-test="input-message"
+                        data-test="input-system-prompt"
                     />
-                    <flux:error name="message" />
+                    <flux:error name="systemPrompt" />
                 </flux:field>
 
-                <div class="flex items-center gap-1 pb-5">
-                    <flux:input
-                        type="file"
-                        wire:model="attachments"
-                        multiple
-                        accept="image/jpg,image/jpeg,image/png,image/webp,image/gif,application/pdf,text/plain,text/markdown,text/csv,application/json,application/xml,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                        class="hidden"
-                        data-test="input-attachments"
-                        id="chat-file-input"
-                    />
-                    <flux:button
-                        size="sm"
-                        icon="paper-clip"
-                        variant="ghost"
-                        onclick="document.getElementById('chat-file-input').click()"
-                        data-test="btn-attach"
-                    />
-                    <flux:button
-                        size="sm"
-                        icon="arrow-up"
-                        variant="primary"
-                        type="submit"
-                        wire:loading.attr="disabled"
-                        wire:target="send"
-                        data-test="btn-send"
-                    >
-                        <span wire:loading.remove wire:target="send">{{ __('Kirim') }}</span>
-                        <span wire:loading wire:target="send" class="flex items-center gap-1">
-                            <flux:icon name="arrow-path" class="size-4 animate-spin" />
-                            {{ __('Memproses...') }}
-                        </span>
-                    </flux:button>
+                <div class="flex items-end gap-3">
+                    <flux:field class="flex-1">
+                        <flux:textarea
+                            wire:model="message"
+                            rows="2"
+                            placeholder="{{ __('Ketik pesan Anda...') }}"
+                            class="min-h-[44px] resize-none"
+                            wire:loading.attr="disabled"
+                            wire:target="send"
+                            data-test="input-message"
+                        />
+                        <flux:error name="message" />
+                    </flux:field>
+
+                    <div class="flex items-center gap-1 pb-5">
+                        <flux:input
+                            type="file"
+                            wire:model="attachments"
+                            multiple
+                            accept="image/jpg,image/jpeg,image/png,image/webp,image/gif,application/pdf,text/plain,text/markdown,text/csv,application/json,application/xml,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                            class="hidden"
+                            data-test="input-attachments"
+                            id="chat-file-input"
+                        />
+                        <flux:button
+                            size="sm"
+                            icon="paper-clip"
+                            variant="ghost"
+                            onclick="document.getElementById('chat-file-input').click()"
+                            data-test="btn-attach"
+                        />
+                        <flux:button
+                            size="sm"
+                            icon="arrow-up"
+                            variant="primary"
+                            type="submit"
+                            wire:loading.attr="disabled"
+                            wire:target="send"
+                            data-test="btn-send"
+                        >
+                            <span wire:loading.remove wire:target="send">{{ __('Kirim') }}</span>
+                            <span wire:loading wire:target="send" class="flex items-center gap-1">
+                                <flux:icon name="arrow-path" class="size-4 animate-spin" />
+                                {{ __('Memproses...') }}
+                            </span>
+                        </flux:button>
+                    </div>
                 </div>
             </form>
         </div>

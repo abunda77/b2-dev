@@ -13,10 +13,19 @@ class ChatAgent implements Agent, Conversational
 {
     use Promptable, RemembersConversations;
 
+    public ?string $systemPrompt = null;
+
     public function __construct(public ?User $user = null) {}
+
+    public function withSystemPrompt(?string $systemPrompt): self
+    {
+        $this->systemPrompt = filled($systemPrompt) ? trim((string) $systemPrompt) : null;
+
+        return $this;
+    }
 
     public function instructions(): Stringable|string
     {
-        return config('ai-chat.system_prompt', 'You are a helpful AI assistant.');
+        return $this->systemPrompt ?: config('ai-chat.system_prompt', 'You are a helpful AI assistant.');
     }
 }

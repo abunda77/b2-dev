@@ -7,12 +7,6 @@ dan proyek mengikuti [Semantic Versioning](https://semver.org/lang/id/).
 
 ## [Unreleased]
 
-### Changed
-
-- Animasi spinning pada tombol submit saat loading ([3ac4eb4](https://github.com/laravel/livewire-starter-kit/commit/3ac4eb4))
-- Update dokumentasi `Laravel13.md` dan integrasi Laravel SDK ([0ded6cd](https://github.com/laravel/livewire-starter-kit/commit/0ded6cd))
-- Sinkronisasi changelog dengan status git terkini ([ddab39a](https://github.com/laravel/livewire-starter-kit/commit/ddab39a))
-
 ### Added
 
 - Fitur cetak invoice / faktur PDF dengan preview, riwayat, upload logo, dan penyimpanan B2 ([42a64d5](https://github.com/laravel/livewire-starter-kit/commit/42a64d5))
@@ -22,6 +16,18 @@ dan proyek mengikuti [Semantic Versioning](https://semver.org/lang/id/).
 - Konfigurasi mail service Brevo ([4b8ae34](https://github.com/laravel/livewire-starter-kit/commit/4b8ae34))
 - Panduan integrasi Brevo ([a17c396](https://github.com/laravel/livewire-starter-kit/commit/a17c396))
 - WhatsApp Gateway untuk notifikasi ([6c20552](https://github.com/laravel/livewire-starter-kit/commit/6c20552))
+- Index database untuk optimasi performa query ([90a9519](https://github.com/laravel/livewire-starter-kit/commit/90a9519))
+
+### Changed
+
+- Animasi spinning pada tombol submit saat loading ([3ac4eb4](https://github.com/laravel/livewire-starter-kit/commit/3ac4eb4))
+- Update dokumentasi `Laravel13.md` dan integrasi Laravel SDK ([0ded6cd](https://github.com/laravel/livewire-starter-kit/commit/0ded6cd))
+- Sinkronisasi changelog dengan status git terkini ([ddab39a](https://github.com/laravel/livewire-starter-kit/commit/ddab39a))
+- Layout form menjadi 2 kolom untuk efisiensi ruang ([e585e9c](https://github.com/laravel/livewire-starter-kit/commit/e585e9c))
+
+### Fixed
+
+- Antrian email tidak terkirim karena kesalahan dispatch job ([04676a0](https://github.com/laravel/livewire-starter-kit/commit/04676a0))
 
 ### Security
 

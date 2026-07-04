@@ -10,6 +10,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **Development:**
 - Run Vite dev server + hot reload: `npm run dev` (or `composer run dev`)
 - Rebuild assets: `npm run build`
+- Full first-run setup: `composer run setup`
 
 **Code Quality:**
 - Format code: `vendor/bin/pint --dirty --format agent` (after editing PHP files)
@@ -23,6 +24,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Static Analysis:**
 - Run PHPStan: `php artisan types:check` or `composer run types:check`
+
+**Queue (required for OTP delivery):**
+- Worker must listen on the `otp` queue or OTP codes will never send: `php artisan queue:work --queue=otp,default`
+- `QUEUE_CONNECTION=database` in prod; `sync` is fine for dev/test.
 
 **Artisan:**
 - Use `php artisan list` to see commands, `php artisan [command] --help` for params
@@ -67,6 +72,27 @@ tests/
 - Complex components use `Actions/` class groups for business logic
 - Use `WithFileUploads` trait for file uploads
 - Upload to storage disks: `local`, `public`, `r2`, `b2`
+
+**Page-Based Anonymous Livewire Components:**
+- Most pages are anonymous Livewire classes defined **inline in Blade files** at `resources/views/pages/{feature}/⚡{name}.blade.php` (note the `⚡` prefix on the filename — required for the `pages::` view namespace to resolve).
+- Routes map to these via the `pages::` namespace, e.g. `Route::livewire('chat', 'pages::chat.index')` renders `resources/views/pages/chat/⚡index.blade.php`.
+- The Blade file begins with `<?php` + `use` statements, then `new #[Layout('layouts.app')] class extends Component { ... }`.
+- There is **no** matching class under `app/Livewire/` for these — the class lives only in the Blade file. `app/Livewire/Actions/Logout.php` is the only conventional component class.
+- When adding a new page: create the `⚡<name>.blade.php` file and register a `Route::livewire(...)` entry in `routes/web.php` (or `routes/settings.php`).
+
+**Login OTP Flow (two-step auth after Fortify login):**
+- `AppServiceProvider::register()` binds `LoginResponse` → `LoginOtpLoginResponse` and `RegisterResponse` → `LoginOtpRegisterResponse`, so a successful Fortify login redirects to `/auth/otp-challenge` instead of the dashboard.
+- `login-otp` middleware alias (`App\Http\Middleware\EnsureLoginOtpVerified`) guards all authenticated routes — the session must be marked verified or the user is forced back to the challenge.
+- `App\Services\LoginOtpService` issues/verifies/resends 6-digit codes (`LoginOtpChallenge` model); OTP delivery is dispatched as `App\Jobs\SendOtpJob` on the **`otp`** queue, sent via WhatsApp (priority) or email.
+- Per-user channel preference lives in the `otp_channel_preference` column on `users`.
+
+**AI Chatbot (`laravel/ai`):**
+- `config/ai.php` defines provider drivers/keys; `config/ai-chat.php` defines the chat UI registry (labels + models per provider). Providers without an API key are auto-hidden by `App\Services\AiChat\ProviderRegistry`.
+- `App\Ai\Agents\ChatAgent` implements `Laravel\Ai\Contracts\Agent` / `Conversational` (uses `Promptable` + `RemembersConversations`). Conversations persist via `laravel/ai`'s `agent_conversations` / `agent_conversation_messages` tables.
+- Custom `9router` driver is registered in `AppServiceProvider::configureAiDrivers()` via `Ai::extend('9router', ...)`. `App\Ai\Providers\NineRouterProvider` extends `OpenRouterProvider` and swaps in `App\Ai\Gateways\NineRouterGateway`, which adds the `Accept: application/json` header the 9Router proxy needs to return JSON instead of SSE.
+
+**Destructive DB guard:**
+- `AppServiceProvider::configureDefaults()` calls `DB::prohibitDestructiveCommands(app()->isProduction())` — in production, `migrate:fresh`/`migrate:refresh`/`db:wipe` are blocked.
 
 **Storage Configuration:**
 - Filesystem disks defined in `config/filesystems.php`

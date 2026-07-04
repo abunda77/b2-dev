@@ -95,6 +95,7 @@ class ChatTest extends TestCase
     {
         $component = Livewire::actingAs($this->user)
             ->test('pages::chat.index')
+            ->set('systemPrompt', 'Jawab singkat')
             ->set('message', 'Hello')
             ->call('send');
 
@@ -102,7 +103,8 @@ class ChatTest extends TestCase
             ->call('newConversation')
             ->assertSet('activeConversationId', null)
             ->assertSet('chatMessages', [])
-            ->assertSet('message', '');
+            ->assertSet('message', '')
+            ->assertSet('systemPrompt', '');
     }
 
     public function test_select_conversation_loads_messages(): void
@@ -161,6 +163,20 @@ class ChatTest extends TestCase
             ->assertSet('selectedModel', 'deepseek-v4-flash');
     }
 
+    public function test_send_with_system_prompt_overrides_default_instructions(): void
+    {
+        ChatAgent::fake(['Mode sistem aktif']);
+
+        Livewire::actingAs($this->user)
+            ->test('pages::chat.index')
+            ->set('systemPrompt', 'Jawab formal dan singkat.')
+            ->set('message', 'Halo')
+            ->call('send')
+            ->assertSee('Mode sistem aktif');
+
+        ChatAgent::assertPrompted(fn ($prompt) => $prompt->agent->instructions() === 'Jawab formal dan singkat.');
+    }
+
     public function test_send_with_attachments_passes_to_agent(): void
     {
         ChatAgent::fake(['Got your file!']);
@@ -179,12 +195,15 @@ class ChatTest extends TestCase
 
     public function test_image_warning_shown_for_non_vision_model(): void
     {
-        Livewire::actingAs($this->user)
+        $component = Livewire::actingAs($this->user)
             ->test('pages::chat.index')
             ->set('selectedProvider', 'deepseek')
             ->set('selectedModel', 'deepseek-v4-flash')
-            ->set('attachments', [UploadedFile::fake()->image('photo.jpg', 100, 100)])
-            ->assertSee('tidak mendukung gambar');
+            ->set('attachments', [UploadedFile::fake()->image('photo.jpg', 100, 100)]);
+
+        $this->assertTrue($component->instance()->hasImageAttachments());
+        $this->assertFalse($component->instance()->selectedModelSupportsImages());
+        $component->assertSee('tidak mendukung gambar');
     }
 
     public function test_image_warning_not_shown_for_vision_model(): void

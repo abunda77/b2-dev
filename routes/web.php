@@ -16,6 +16,7 @@ Route::middleware(['auth', 'verified', 'login-otp'])->group(function () {
     Route::livewire('chat', 'pages::chat.index')->name('chat.index');
 
     Route::livewire('warga', 'pages::warga.index')->name('warga.index');
+    Route::livewire('notes', 'pages::notes.index')->name('notes.index');
     Route::livewire('whatsapp/send-message', 'pages::whatsapp.send-message')->name('whatsapp.send-message');
     Route::livewire('email/send-message', 'pages::email.send-message')->name('email.send-message');
     Route::livewire('qr-code/generate', 'pages::qr-code.generate')->name('qr-code.generate');

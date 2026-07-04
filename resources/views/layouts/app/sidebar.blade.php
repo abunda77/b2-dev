@@ -30,6 +30,12 @@
                         </x-slot:icon>
                         {{ __('Warga') }}
                     </flux:sidebar.item>
+                    <flux:sidebar.item :href="route('notes.index')" :current="request()->routeIs('notes.*')" wire:navigate>
+                        <x-slot:icon>
+                            <flux:icon.document-text variant="solid" class="text-cyan-400! size-5!" />
+                        </x-slot:icon>
+                        {{ __('Notes') }}
+                    </flux:sidebar.item>
                     <flux:sidebar.item :href="route('whatsapp.send-message')" :current="request()->routeIs('whatsapp.*')" wire:navigate>
                         <x-slot:icon>
                             <flux:icon.chat-bubble-left variant="solid" class="text-green-500! size-5!" />
