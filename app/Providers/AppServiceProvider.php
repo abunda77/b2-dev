@@ -14,6 +14,7 @@ use Illuminate\Validation\Rules\Password;
 use Laravel\Ai\Ai;
 use Laravel\Fortify\Contracts\LoginResponse;
 use Laravel\Fortify\Contracts\RegisterResponse;
+use Livewire\Blaze\Blaze;
 
 class AppServiceProvider extends ServiceProvider
 {

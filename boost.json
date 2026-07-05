@@ -3,8 +3,16 @@
         "claude_code"
     ],
     "cloud": false,
-    "guidelines": true,
     "packages": [
         "livewire/blaze"
+    ],
+    "skills": [
+        "ai-sdk-development",
+        "fortify-development",
+        "laravel-best-practices",
+        "fluxui-development",
+        "livewire-development",
+        "tailwindcss-development",
+        "blaze-optimize"
     ]
 }
