@@ -1,10 +1,19 @@
 <?php
 
+use App\Http\Controllers\Auth\GoogleController;
 use App\Services\QrCodeTemporaryFileService;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 
 Route::view('/', 'welcome')->name('home');
+
+Route::get('auth/google/redirect', [GoogleController::class, 'redirect'])
+    ->middleware('guest')
+    ->name('google.redirect');
+
+Route::get('auth/google/callback', [GoogleController::class, 'callback'])
+    ->middleware('guest')
+    ->name('google.callback');
 
 Route::middleware(['auth'])->group(function () {
     Route::livewire('auth/otp-challenge', 'pages::auth.otp-challenge')->name('otp.challenge');
