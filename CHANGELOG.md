@@ -9,29 +9,33 @@ dan proyek mengikuti [Semantic Versioning](https://semver.org/lang/id/).
 
 ### Added
 
-- Fitur cetak invoice / faktur PDF dengan preview, riwayat, upload logo, dan penyimpanan B2 ([42a64d5](https://github.com/laravel/livewire-starter-kit/commit/42a64d5))
-- Fitur AI chatbot multi-provider beserta provider config dan perbaikan 9Router ([a922fbb](https://github.com/laravel/livewire-starter-kit/commit/a922fbb))
-- Fitur generate QR code ([5ae108f](https://github.com/laravel/livewire-starter-kit/commit/5ae108f))
-- OTP challenge untuk verifikasi login ([f2103b7](https://github.com/laravel/livewire-starter-kit/commit/f2103b7))
-- Konfigurasi mail service Brevo ([4b8ae34](https://github.com/laravel/livewire-starter-kit/commit/4b8ae34))
-- Panduan integrasi Brevo ([a17c396](https://github.com/laravel/livewire-starter-kit/commit/a17c396))
-- WhatsApp Gateway untuk notifikasi ([6c20552](https://github.com/laravel/livewire-starter-kit/commit/6c20552))
-- Index database untuk optimasi performa query ([90a9519](https://github.com/laravel/livewire-starter-kit/commit/90a9519))
+- Fitur cetak invoice / faktur PDF dengan preview, riwayat, upload logo, dan penyimpanan B2
+- Fitur AI chatbot multi-provider beserta provider config dan perbaikan 9Router
+- Fitur generate QR code
+- OTP challenge untuk verifikasi login
+- Konfigurasi mail service Brevo
+- Panduan integrasi Brevo
+- WhatsApp Gateway untuk notifikasi
+- Index database untuk optimasi performa query
+- Google oAuth Login
+- MD reader
+- fitur notes + panduan TEMPMAIL.md
 
 ### Changed
 
-- Animasi spinning pada tombol submit saat loading ([3ac4eb4](https://github.com/laravel/livewire-starter-kit/commit/3ac4eb4))
-- Update dokumentasi `Laravel13.md` dan integrasi Laravel SDK ([0ded6cd](https://github.com/laravel/livewire-starter-kit/commit/0ded6cd))
-- Sinkronisasi changelog dengan status git terkini ([ddab39a](https://github.com/laravel/livewire-starter-kit/commit/ddab39a))
-- Layout form menjadi 2 kolom untuk efisiensi ruang ([e585e9c](https://github.com/laravel/livewire-starter-kit/commit/e585e9c))
+- Animasi spinning pada tombol submit saat loading
+- Update dokumentasi `Laravel13.md` dan integrasi Laravel SDK
+- Sinkronisasi changelog dengan status git terkini
+- Layout form menjadi 2 kolom untuk efisiensi ruang
+- boost
 
 ### Fixed
 
-- Antrian email tidak terkirim karena kesalahan dispatch job ([04676a0](https://github.com/laravel/livewire-starter-kit/commit/04676a0))
+- Antrian email tidak terkirim karena kesalahan dispatch job
 
 ### Security
 
-- Rotasi sensitive key pada konfigurasi ([3abf31e](https://github.com/laravel/livewire-starter-kit/commit/3abf31e))
+- Rotasi sensitive key pada konfigurasi
 
 ## [0.1.0] - 2026-06-29
 

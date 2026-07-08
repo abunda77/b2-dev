@@ -6,6 +6,7 @@ Aplikasi web berbasis **Laravel 13** dan **Livewire 4** untuk mengelola data war
 
 - **Manajemen Warga** — pencatatan data warga beserta unggahan pas foto dan dokumen.
 - **Autentikasi lengkap** — login, registrasi, reset password, verifikasi email.
+- **OAuth Google Login** — login alternatif via akun Google menggunakan `laravel/socialite`, tetap melewati alur OTP dua langkah.
 - **Passkey & Two-Factor Authentication** — keamanan akun via `laravel/fortify` dan `@laravel/passkeys`.
 - **OTP Login** — verifikasi dua langkah setelah login berhasil menggunakan kode OTP 6 digit, dikirim via WhatsApp atau email. Mendukung kirim ulang, pembatasan percobaan, dan kedaluwarsa otomatis.
 - **Penyimpanan fleksibel** — disk `local`, `public`, `s3` (B2), dan `r2` (Cloudflare R2).
@@ -24,7 +25,7 @@ Aplikasi web berbasis **Laravel 13** dan **Livewire 4** untuk mengelola data war
 | --------------- | ----------------------------------------------------- |
 | Backend         | Laravel 13.x, PHP 8.3                                 |
 | Frontend        | Livewire 4.x, Flux UI, TailwindCSS 4, Vite, Alpine.js |
-| Autentikasi     | Laravel Fortify, Passkeys, 2FA, OTP Login             |
+| Autentikasi     | Laravel Fortify, Passkeys, 2FA, OTP Login, OAuth Google (`laravel/socialite`) |
 | Queue           | Laravel Queue (driver `database` / `sync`), queue `otp` |
 | Integrasi       | WhatsApp Gateway REST API (Go), QR Code Generator, Faktur PDF Generator, Laravel AI (chatbot), league/commonmark (Markdown) |
 | Penyimpanan     | S3-compatible (Backblaze B2, Cloudflare R2, AWS S3)   |
@@ -40,6 +41,7 @@ Aplikasi web berbasis **Laravel 13** dan **Livewire 4** untuk mengelola data war
 - Layanan WhatsApp Gateway aktif bila ingin memakai fitur kirim pesan WhatsApp / OTP via WhatsApp
 - Kredensial SMTP Brevo aktif bila ingin memakai fitur kirim email dashboard / OTP via email
 - Queue worker aktif (`php artisan queue:work --queue=otp,default`) agar pengiriman OTP diproses
+- OAuth client Google (Client ID & Secret) bila ingin memakai fitur login Google
 
 ## Instalasi
 
@@ -119,6 +121,76 @@ resources/views/
 ├── pages/chat/       # Halaman chatbot AI
 └── pages/docs/       # Halaman Markdown Reader (Docs)
 ```
+
+## OAuth Google Login
+
+Fitur login Google memakai `laravel/socialite` sebagai klien OAuth. Setelah login Google berhasil, user tetap melewati alur OTP dua langkah (`LoginOtpService::issueChallenge()`) lalu diarahkan ke `/auth/otp-challenge` — konsisten dengan login email/password.
+
+### Variabel `.env`
+
+```env
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_REDIRECT_URI="${APP_URL}/auth/google/callback"
+```
+
+### Konfigurasi `config/services.php`
+
+```php
+'google' => [
+    'client_id' => env('GOOGLE_CLIENT_ID'),
+    'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+    'redirect' => env('GOOGLE_REDIRECT_URI'),
+],
+```
+
+Verifikasi nilai sudah terbaca:
+
+```bash
+php artisan config:show services.google
+```
+
+### Skema Database
+
+Migrasi menambahkan kolom `google_id` (unique, nullable) dan `avatar` ke tabel `users`:
+
+```bash
+php artisan migrate
+```
+
+### Rute
+
+Rute berada di luar middleware `auth` (diakses sebelum login):
+
+| Method | Path                       | Name             | Deskripsi                        |
+| ------ | -------------------------- | ---------------- | -------------------------------- |
+| GET    | `/auth/google/redirect`    | `google.redirect` | Arahkan user ke halaman izin Google |
+| GET    | `/auth/google/callback`    | `google.callback` | Tangani callback dari Google         |
+
+Verifikasi rute:
+
+```bash
+php artisan route:list --path=auth/google
+```
+
+### Alur Login Google
+
+1. User klik "Masuk dengan Google" di halaman login → redirect ke Google consent.
+2. Google callback → `GoogleController::callback()` mengambil profil Google.
+3. `findOrCreateUser()` mencari user berdasarkan `google_id` atau `email`; bila belum ada, dibuatkan user baru tanpa password dengan `email_verified_at = now()`.
+4. `Auth::login()` lalu `LoginOtpService::issueChallenge()` men-dispatch OTP ke queue `otp`.
+5. User diarahkan ke `/auth/otp-challenge` untuk memasukkan kode OTP.
+
+### Catatan Keamanan
+
+- `google_id` dipakai sebagai kunci utama; email hanya fallback untuk menautkan akun existing.
+- Google `email_verified` wajib dicek sebelum menautkan `google_id` ke akun existing berdasarkan email agar tidak terjadi account takeover.
+- User OAuth tidak punya password (kolom `password` null); login manual via form tidak mungkin.
+- State parameter CSRF otomatis disertakan oleh Socialite — jangan dimatikan.
+- Alur OTP dua langkah tetap berlaku; jalur Google tidak boleh membypass middleware `login-otp`.
+
+Lihat panduan lengkap:
+- [`OAUTHLOGIN.md`](OAUTHLOGIN.md)
 
 ## Konfigurasi Penyimpanan
 
