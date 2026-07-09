@@ -42,7 +42,8 @@ frankenphp-worker.php
 .claude/
 database/.gitignore
 storage/blaze/
-storage/framework/.gitignore        
+storage/framework/.gitignore       
+database/database.sqlite 
 
 
 
