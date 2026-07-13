@@ -13,6 +13,8 @@ Langkah step-by-step menggunakan database API eksternal Supabase.
    - **anon (public) key** → untuk akses client-side
    - **service_role key** → untuk akses server-side (Laravel)
 
+> **Peringatan Keamanan:** `service_role` key **bypass seluruh Row Level Security (RLS)**. Jangan pernah expose key ini di client-side (JavaScript, file publik, atau commit ke repository). Gunakan hanya di backend Laravel melalui `config/services.php` dan `.env`.
+
 ---
 
 ## 2. Buat Tabel di Supabase
@@ -75,6 +77,8 @@ Kemudian isi dengan:
 namespace App\Services;
 
 use Illuminate\Http\Client\RequestException;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
 
 class SupabaseService
@@ -92,13 +96,19 @@ class SupabaseService
     /**
      * @return array<string, string>
      */
-    protected function headers(): array
+    protected function headers(bool $count = false): array
     {
+        $prefer = 'return=representation';
+
+        if ($count) {
+            $prefer .= ', count=exact';
+        }
+
         return [
             'apikey' => $this->apiKey,
             'Authorization' => 'Bearer '.$this->apiKey,
             'Content-Type' => 'application/json',
-            'Prefer' => 'return=representation',
+            'Prefer' => $prefer,
         ];
     }
 
@@ -129,17 +139,61 @@ class SupabaseService
     }
 
     /**
-     * Ambil satu data berdasarkan ID.
+     * Ambil data dengan pagination menggunakan Range header.
+     *
+     * @param  array<string, string>  $query
+     */
+    public function paginate(string $table, int $page = 1, int $perPage = 10, array $query = []): LengthAwarePaginator
+    {
+        $start = ($page - 1) * $perPage;
+        $end = $start + $perPage - 1;
+
+        try {
+            $response = Http::withHeaders($this->headers(count: true))
+                ->withHeaders(['Range' => "{$start}-{$end}"])
+                ->throw()
+                ->get("{$this->baseUrl}/{$table}", $query);
+
+            $data = $response->json();
+
+            // Parse total dari header Content-Range, format: "0-9/42"
+            $contentRange = $response->header('Content-Range') ?? '';
+            $total = (int) (explode('/', $contentRange)[1] ?? count($data));
+
+            return new LengthAwarePaginator(
+                Collection::make($data),
+                $total,
+                $perPage,
+                $page,
+                [
+                    'path' => request()->url(),
+                    'pageName' => 'page',
+                ],
+            );
+        } catch (RequestException $e) {
+            logger()->error('Supabase API Error', [
+                'method' => 'PAGINATE',
+                'table' => $table,
+                'status' => $e->response->status(),
+                'body' => $e->response->body(),
+            ]);
+
+            return new LengthAwarePaginator(Collection::make([]), 0, $perPage, $page);
+        }
+    }
+
+    /**
+     * Ambil satu data berdasarkan kolom key (default: id).
      *
      * @return array<string, mixed>|null
      */
-    public function find(string $table, string $id): ?array
+    public function find(string $table, string $id, string $key = 'id'): ?array
     {
         try {
             $response = Http::withHeaders($this->headers())
                 ->throw()
                 ->get("{$this->baseUrl}/{$table}", [
-                    'id' => "eq.{$id}",
+                    $key => "eq.{$id}",
                 ]);
 
             $data = $response->json();
@@ -149,6 +203,7 @@ class SupabaseService
             logger()->error('Supabase API Error', [
                 'method' => 'FIND',
                 'table' => $table,
+                'key' => $key,
                 'id' => $id,
                 'status' => $e->response->status(),
                 'body' => $e->response->body(),
@@ -185,23 +240,24 @@ class SupabaseService
     }
 
     /**
-     * Update data berdasarkan ID.
+     * Update data berdasarkan kolom key (default: id).
      *
      * @param  array<string, mixed>  $data
      * @return array<int, array<string, mixed>>
      */
-    public function update(string $table, string $id, array $data): array
+    public function update(string $table, string $id, array $data, string $key = 'id'): array
     {
         try {
             $response = Http::withHeaders($this->headers())
                 ->throw()
-                ->patch("{$this->baseUrl}/{$table}?id=eq.{$id}", $data);
+                ->patch("{$this->baseUrl}/{$table}?{$key}=eq.{$id}", $data);
 
             return $response->json();
         } catch (RequestException $e) {
             logger()->error('Supabase API Error', [
                 'method' => 'UPDATE',
                 'table' => $table,
+                'key' => $key,
                 'id' => $id,
                 'status' => $e->response->status(),
                 'body' => $e->response->body(),
@@ -212,20 +268,21 @@ class SupabaseService
     }
 
     /**
-     * Hapus data berdasarkan ID.
+     * Hapus data berdasarkan kolom key (default: id).
      */
-    public function delete(string $table, string $id): bool
+    public function delete(string $table, string $id, string $key = 'id'): bool
     {
         try {
             $response = Http::withHeaders($this->headers())
                 ->throw()
-                ->delete("{$this->baseUrl}/{$table}?id=eq.{$id}");
+                ->delete("{$this->baseUrl}/{$table}?{$key}=eq.{$id}");
 
             return $response->successful();
         } catch (RequestException $e) {
             logger()->error('Supabase API Error', [
                 'method' => 'DELETE',
                 'table' => $table,
+                'key' => $key,
                 'id' => $id,
                 'status' => $e->response->status(),
                 'body' => $e->response->body(),
@@ -236,6 +293,8 @@ class SupabaseService
     }
 }
 ```
+
+> **Catatan:** Method `find`, `update`, dan `delete` menerima parameter opsional `$key` (default: `'id'`). Gunakan jika primary key tabel bukan `id`, contoh: `$supabase->find('orders', 'ORD-001', 'order_number')`.
 
 ---
 
@@ -261,7 +320,7 @@ Project ini menggunakan **Livewire Single File Component (SFC)** dengan prefix `
 Buka `routes/web.php` dan tambahkan di dalam group middleware `['auth', 'verified', 'login-otp']`:
 
 ```php
-Route::livewire('/products', 'pages::products.index')->name('products.index');
+Route::livewire('products', 'pages::products.index')->name('products.index');
 ```
 
 ### 6.2. Buat Livewire SFC Page
@@ -272,33 +331,44 @@ Buat file `resources/views/pages/products/⚡index.blade.php`:
 <?php
 
 use App\Services\SupabaseService;
+use Flux\Flux;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Validate;
 use Livewire\Component;
+use Livewire\WithPagination;
 
-new
-#[Title('Products')]
-#[Layout('layouts.app')]
-class extends Component
-{
+new #[Title('Products')] #[Layout('layouts.app')] class extends Component {
+    use WithPagination;
+
     public string $search = '';
 
-    #[Validate('required|string|max:255')]
+    public bool $showFormModal = false;
+
+    public bool $showDeleteModal = false;
+
+    public ?string $editingId = null;
+
+    #[Validate(['required', 'string', 'max:255'])]
     public string $name = '';
 
-    #[Validate('nullable|string')]
+    #[Validate(['nullable', 'string'])]
     public string $description = '';
 
-    #[Validate('required|numeric|min:0')]
-    public float $price = 0;
+    #[Validate(['required', 'numeric', 'min:0'])]
+    public float|string $price = 0;
 
-    #[Validate('required|integer|min:0')]
+    #[Validate(['required', 'integer', 'min:0'])]
     public int $stock = 0;
 
+    public ?string $productToDeleteId = null;
+
+    public ?string $productToDeleteName = null;
+
     #[Computed]
-    public function products(): array
+    public function products(): LengthAwarePaginator
     {
         $supabase = app(SupabaseService::class);
 
@@ -308,7 +378,18 @@ class extends Component
             $query['name'] = "ilike.%{$this->search}%";
         }
 
-        return $supabase->get('products', $query);
+        return $supabase->paginate('products', $this->getPage(), 10, $query);
+    }
+
+    public function updatedSearch(): void
+    {
+        $this->resetPage();
+    }
+
+    public function create(): void
+    {
+        $this->resetForm();
+        $this->showFormModal = true;
     }
 
     public function store(): void
@@ -318,61 +399,180 @@ class extends Component
         $supabase = app(SupabaseService::class);
         $supabase->insert('products', $validated);
 
-        $this->reset(['name', 'description', 'price', 'stock']);
+        $this->showFormModal = false;
+        $this->resetForm();
+        $this->resetPage();
         unset($this->products);
 
-        session()->flash('success', 'Produk berhasil ditambahkan.');
+        Flux::toast(variant: 'success', text: 'Produk berhasil ditambahkan.');
     }
 
-    public function deleteProduct(string $id): void
+    public function confirmDelete(string $id, string $name): void
     {
+        $this->productToDeleteId = $id;
+        $this->productToDeleteName = $name;
+        $this->showDeleteModal = true;
+    }
+
+    public function delete(): void
+    {
+        if (! $this->productToDeleteId) {
+            return;
+        }
+
         $supabase = app(SupabaseService::class);
-        $supabase->delete('products', $id);
+        $supabase->delete('products', $this->productToDeleteId);
+
+        $this->showDeleteModal = false;
+        $this->productToDeleteId = null;
+        $this->productToDeleteName = null;
+        $this->resetPage();
         unset($this->products);
+
+        Flux::toast(variant: 'success', text: 'Produk berhasil dihapus.');
+    }
+
+    private function resetForm(): void
+    {
+        $this->editingId = null;
+        $this->name = '';
+        $this->description = '';
+        $this->price = 0;
+        $this->stock = 0;
+        $this->resetValidation();
     }
 }; ?>
 
-<div>
-    <flux:heading size="xl">Products</flux:heading>
-    <flux:subheading>Kelola data produk dari Supabase.</flux:subheading>
-
-    <div class="mt-6 space-y-6">
-        @if (session('success'))
-            <flux:badge color="green">{{ session('success') }}</flux:badge>
-        @endif
-
-        <flux:input wire:model.live.debounce.300ms="search" placeholder="Cari produk..." icon="magnifying-glass" />
-
-        <flux:table>
-            <flux:table.columns>
-                <flux:table.column>Nama</flux:table.column>
-                <flux:table.column>Harga</flux:table.column>
-                <flux:table.column>Stok</flux:table.column>
-                <flux:table.column>Aksi</flux:table.column>
-            </flux:table.columns>
-
-            <flux:table.rows>
-                @forelse($this->products as $product)
-                    <flux:table.row>
-                        <flux:table.cell>{{ $product['name'] }}</flux:table.cell>
-                        <flux:table.cell>Rp {{ number_format($product['price'], 0, ',', '.') }}</flux:table.cell>
-                        <flux:table.cell>{{ $product['stock'] }}</flux:table.cell>
-                        <flux:table.cell>
-                            <flux:button size="sm" variant="danger"
-                                wire:click="deleteProduct('{{ $product['id'] }}')"
-                                wire:confirm="Yakin hapus produk ini?">
-                                Hapus
-                            </flux:button>
-                        </flux:table.cell>
-                    </flux:table.row>
-                @empty
-                    <flux:table.row>
-                        <flux:table.cell colspan="4">Tidak ada produk.</flux:table.cell>
-                    </flux:table.row>
-                @endforelse
-            </flux:table.rows>
-        </flux:table>
+<div class="space-y-6">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+            <flux:heading size="xl" level="1">{{ __('Products') }}</flux:heading>
+            <flux:subheading>{{ __('Kelola data produk dari Supabase.') }}</flux:subheading>
+        </div>
+        <flux:button variant="primary" icon="plus" wire:click="create">
+            {{ __('Tambah Produk') }}
+        </flux:button>
     </div>
+
+    <div class="max-w-sm">
+        <flux:input
+            wire:model.live.debounce.300ms="search"
+            icon="magnifying-glass"
+            placeholder="{{ __('Cari produk...') }}"
+            clearable
+        />
+    </div>
+
+    <flux:table>
+        <flux:table.columns>
+            <flux:table.column>{{ __('Nama') }}</flux:table.column>
+            <flux:table.column>{{ __('Harga') }}</flux:table.column>
+            <flux:table.column>{{ __('Stok') }}</flux:table.column>
+            <flux:table.column>{{ __('Aksi') }}</flux:table.column>
+        </flux:table.columns>
+
+        <flux:table.rows>
+            @forelse ($this->products as $product)
+                <flux:table.row wire:key="product-{{ $product['id'] }}">
+                    <flux:table.cell class="font-medium">{{ $product['name'] }}</flux:table.cell>
+                    <flux:table.cell>Rp {{ number_format($product['price'], 0, ',', '.') }}</flux:table.cell>
+                    <flux:table.cell>{{ $product['stock'] }}</flux:table.cell>
+                    <flux:table.cell>
+                        <flux:button
+                            size="sm"
+                            icon="trash"
+                            variant="ghost"
+                            class="text-red-500 hover:text-red-600 dark:text-red-400"
+                            wire:click="confirmDelete('{{ $product['id'] }}', '{{ $product['name'] }}')"
+                        >
+                            {{ __('Hapus') }}
+                        </flux:button>
+                    </flux:table.cell>
+                </flux:table.row>
+            @empty
+                <flux:table.row>
+                    <flux:table.cell colspan="4" class="py-12 text-center">
+                        <div class="flex flex-col items-center gap-2 text-zinc-400">
+                            <flux:icon name="cube" class="size-10 opacity-40" />
+                            <p class="text-sm">
+                                {{ $search ? __('Tidak ada produk yang cocok dengan pencarian.') : __('Belum ada produk.') }}
+                            </p>
+                        </div>
+                    </flux:table.cell>
+                </flux:table.row>
+            @endforelse
+        </flux:table.rows>
+    </flux:table>
+
+    @if ($this->products->hasPages())
+        <div>
+            {{ $this->products->links() }}
+        </div>
+    @endif
+
+    <flux:modal wire:model="showFormModal" class="w-full max-w-lg">
+        <flux:heading size="lg">{{ __('Tambah Produk') }}</flux:heading>
+        <flux:subheading>{{ __('Isi data produk baru.') }}</flux:subheading>
+
+        <form wire:submit="store" class="mt-6 space-y-5">
+            <flux:field>
+                <flux:label>{{ __('Nama') }}</flux:label>
+                <flux:input wire:model="name" type="text" placeholder="Nama produk" />
+                <flux:error name="name" />
+            </flux:field>
+
+            <flux:field>
+                <flux:label>{{ __('Deskripsi') }}</flux:label>
+                <flux:textarea wire:model="description" rows="3" placeholder="Deskripsi produk" />
+                <flux:error name="description" />
+            </flux:field>
+
+            <flux:field>
+                <flux:label>{{ __('Harga') }}</flux:label>
+                <flux:input wire:model="price" type="number" placeholder="0" />
+                <flux:error name="price" />
+            </flux:field>
+
+            <flux:field>
+                <flux:label>{{ __('Stok') }}</flux:label>
+                <flux:input wire:model="stock" type="number" placeholder="0" />
+                <flux:error name="stock" />
+            </flux:field>
+
+            <div class="flex items-center justify-end gap-3">
+                <flux:button type="button" variant="ghost" wire:click="$set('showFormModal', false)">
+                    {{ __('Batal') }}
+                </flux:button>
+                <flux:button type="submit" variant="primary">
+                    {{ __('Simpan') }}
+                </flux:button>
+            </div>
+        </form>
+    </flux:modal>
+
+    <flux:modal wire:model="showDeleteModal" class="max-w-sm">
+        <div class="flex flex-col items-center gap-4 text-center">
+            <div class="flex h-14 w-14 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
+                <flux:icon name="trash" class="size-7 text-red-500" />
+            </div>
+            <div>
+                <flux:heading size="lg">{{ __('Hapus Produk') }}</flux:heading>
+                <flux:text class="mt-1 text-zinc-500 dark:text-zinc-400">
+                    {{ __('Apakah Anda yakin ingin menghapus produk') }}
+                    <span class="font-semibold text-zinc-900 dark:text-zinc-100">{{ $productToDeleteName }}</span>?
+                </flux:text>
+            </div>
+        </div>
+
+        <div class="mt-6 flex justify-center gap-3">
+            <flux:button type="button" variant="ghost" wire:click="$set('showDeleteModal', false)">
+                {{ __('Batal') }}
+            </flux:button>
+            <flux:button type="button" variant="danger" wire:click="delete">
+                {{ __('Ya, Hapus') }}
+            </flux:button>
+        </div>
+    </flux:modal>
 </div>
 ```
 
@@ -468,11 +668,11 @@ Route untuk controller (di `routes/web.php`):
 use App\Http\Controllers\ProductController;
 
 Route::middleware(['auth', 'verified', 'login-otp'])->group(function () {
-    Route::get('/products', [ProductController::class, 'index'])->name('products.index');
-    Route::get('/products/{id}', [ProductController::class, 'show'])->name('products.show');
-    Route::post('/products', [ProductController::class, 'store'])->name('products.store');
-    Route::put('/products/{id}', [ProductController::class, 'update'])->name('products.update');
-    Route::delete('/products/{id}', [ProductController::class, 'destroy'])->name('products.destroy');
+    Route::get('products', [ProductController::class, 'index'])->name('products.index');
+    Route::get('products/{id}', [ProductController::class, 'show'])->name('products.show');
+    Route::post('products', [ProductController::class, 'store'])->name('products.store');
+    Route::put('products/{id}', [ProductController::class, 'update'])->name('products.update');
+    Route::delete('products/{id}', [ProductController::class, 'destroy'])->name('products.destroy');
 });
 ```
 
@@ -499,17 +699,19 @@ $supabase->get('products', [
 
 ### 8.3. Pagination
 
-```php
-$response = Http::withHeaders($this->headers())
-    ->withHeaders([
-        'Range' => '0-9',
-        'Prefer' => 'count=exact',
-    ])
-    ->get("{$this->baseUrl}/products");
+Gunakan method `paginate()` dari `SupabaseService` yang sudah mengembalikan `LengthAwarePaginator`:
 
-$total = $response->header('Content-Range'); // "0-9/42"
-$data = $response->json();
+```php
+$supabase = app(SupabaseService::class);
+
+$products = $supabase->paginate('products', page: 1, perPage: 10, query: [
+    'order' => 'created_at.desc',
+]);
+
+$products->links(); // render pagination di Blade
 ```
+
+> **Catatan:** Method `paginate()` menggunakan header `Range` (misal `0-9` untuk halaman 1) dan `Prefer: count=exact` untuk mendapatkan total record dari header `Content-Range`. Anda tidak perlu menulis HTTP call manual.
 
 ### 8.4. Relasi (Foreign Table)
 
@@ -588,7 +790,7 @@ class SupabaseServiceTest extends TestCase
     public function test_dapat_insert_product_ke_supabase(): void
     {
         Http::fake([
-            '*/rest/v1/products' => Http::response([
+            '*/rest/v1/products*' => Http::response([
                 ['id' => 'uuid-new', 'name' => 'Produk Baru', 'price' => 15000, 'stock' => 10],
             ]),
         ]);
@@ -631,6 +833,27 @@ class SupabaseServiceTest extends TestCase
         $result = $service->delete('products', 'uuid-1');
 
         $this->assertTrue($result);
+    }
+
+    public function test_dapat_paginate_products_dari_supabase(): void
+    {
+        Http::fake([
+            '*/rest/v1/products*' => Http::response(
+                [
+                    ['id' => 'uuid-1', 'name' => 'Produk A', 'price' => 10000, 'stock' => 5],
+                    ['id' => 'uuid-2', 'name' => 'Produk B', 'price' => 20000, 'stock' => 3],
+                ],
+                206,
+                ['Content-Range' => '0-1/42'],
+            ),
+        ]);
+
+        $service = app(SupabaseService::class);
+        $paginator = $service->paginate('products', 1, 10);
+
+        $this->assertCount(2, $paginator);
+        $this->assertEquals(42, $paginator->total());
+        $this->assertEquals('Produk A', $paginator->first()['name']);
     }
 
     public function test_get_mengembalikan_array_kosong_saat_api_error(): void
