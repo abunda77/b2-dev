@@ -29,6 +29,67 @@
 2. Aktifkan **Allow Public Access**
 3. Klik **Connect Domain** → tambahkan custom domain (misal `assets.example.com`)
 
+### 1.4 Custom Domain untuk Development (dev)
+
+Custom domain digunakan agar file di R2 bisa diakses via domain sendiri (bukan `r2.dev`), sehingga URL lebih profesional dan konsisten antar environment.
+
+#### 1.4.1 Prasyarat
+- Domain sudah terkelola di Cloudflare (nameserver Cloudflare)
+- Bucket R2 sudah dibuat
+- Public Access sudah diaktifkan
+
+#### 1.4.2 Langkah Setup
+
+1. **Buka bucket** → tab **Settings** → **Public Access**
+2. Klik **Connect Domain**
+3. Masukkan domain (contoh: `assets-dev.example.com`)
+4. Cloudflare akan otomatis membuat DNS record **CNAME** yang mengarah ke `{bucket-name}.{account-id}.r2.cloudflarestorage.com`
+5. Jika menggunakan subdomain yang sudah ada DNS record-nya, Cloudflare akan menampilkan peringatan — pilih **Override** untuk mengganti record
+6. Tunggu propagasi DNS (biasanya 1-5 menit)
+7. Status akan berubah menjadi **Active**
+
+#### 1.4.3 Update Environment
+
+Setelah domain aktif, update `.env`:
+
+```env
+R2_URL=https://assets-dev.example.com
+```
+
+#### 1.4.4 Verifikasi
+
+```bash
+# Test upload
+php artisan tinker
+> Storage::disk('r2')->put('test/hello.txt', 'Hello R2!');
+> Storage::disk('r2')->url('test/hello.txt');
+# Output: https://assets-dev.example.com/test/hello.txt
+```
+
+Buka URL tersebut di browser — harusnya menampilkan "Hello R2!".
+
+#### 1.4.5 Catatan Penting
+
+| Hal | Keterangan |
+|-----|------------|
+| **SSL/TLS** | Otomatis aktif (Cloudflare proxy). Tidak perlu sertifikat manual. |
+| **Proxy Mode** | DNS otomatis menggunakan **Proxied** (orange cloud). Jangan ubah ke **DNS Only** agar traffic melewati Cloudflare. |
+| **Cache** | Cloudflare akan meng-cache file statis. Untuk file yang sering berubah, gunakan `Cache-Control: no-cache` atau purge cache manual. |
+| **Harga** | Tidak ada biaya tambahan untuk custom domain. Hanya bayar storage + operasi R2. |
+| **Batasan** | Satu bucket bisa memiliki maksimal 100 custom domain. Root domain (naked domain) tidak didukung — harus menggunakan subdomain. |
+
+#### 1.4.6 Multiple Domain Satu Bucket
+
+Satu bucket bisa dipasang ke beberapa subdomain untuk environment berbeda:
+
+| Environment | Subdomain | Environment Variable |
+|-------------|-----------|---------------------|
+| Production | `assets.example.com` | `R2_URL` |
+| Staging | `assets-staging.example.com` | `R2_URL_STAGING` |
+| Development | `assets-dev.example.com` | `R2_URL_DEV` |
+
+Caranya: buka bucket → **Settings** → **Public Access** → **Connect Domain** lagi untuk setiap domain.
+
 ---
 
 ## 2. Konfigurasi Laravel

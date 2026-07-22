@@ -970,11 +970,22 @@ Route::get('/download/{filename}', [DownloadController::class, 'download'])->nam
 
 ## 7. Setup CDN (Custom Domain)
 
-Karena Backblaze B2 tidak menyediakan custom domain langsung, Anda perlu menambahkan CDN di depannya.
+Karena Backblaze B2 tidak menyediakan custom domain langsung, Anda perlu menambahkan CDN di depannya agar file bisa diakses via domain sendiri (bukan `backblazeb2.com`).
 
-### 7.1 Opsi A: Cloudflare (Gratis)
-1. Tambahkan domain Anda di Cloudflare
-2. Buat Worker untuk proxy request ke B2:
+### 7.1 Prasyarat
+- Domain sudah terkelola di Cloudflare (nameserver Cloudflare) — untuk opsi Worker
+- Bucket B2 sudah dibuat dan berisi file
+- Bucket sudah di-set **Public** (jika akses langsung melalui CDN diperlukan)
+
+### 7.2 Opsi A: Cloudflare Worker (Gratis)
+
+Worker akan bertindak sebagai proxy: setiap request ke domain Anda diteruskan ke B2, lalu response dari B2 dikembalikan ke client.
+
+#### 7.2.1 Buat Worker
+
+1. Dashboard Cloudflare → **Workers & Pages** → **Create Application** → **Create Worker**
+2. Beri nama: `b2-proxy`
+3. Ganti kode dengan:
 
 ```js
 // Cloudflare Worker — proxy ke B2
@@ -982,25 +993,125 @@ export default {
     async fetch(request) {
         const url = new URL(request.url);
         const bucketUrl = 'https://f004.backblazeb2.com/file/myapp-assets';
-        return fetch(bucketUrl + url.pathname);
+        const response = await fetch(bucketUrl + url.pathname);
+
+        // Tambahkan CORS headers
+        const corsHeaders = {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
+            'Cache-Control': 'public, max-age=31536000, immutable',
+        };
+
+        // Handle preflight
+        if (request.method === 'OPTIONS') {
+            return new Response(null, { headers: corsHeaders });
+        }
+
+        // Clone response dan tambahkan CORS headers
+        const newResponse = new Response(response.body, response);
+        Object.entries(corsHeaders).forEach(([key, value]) => {
+            newResponse.headers.set(key, value);
+        });
+
+        return newResponse;
     }
 };
 ```
 
-3. Setup route di Worker (`assets.example.com/*`)
-4. Masukkan URL Worker ke `.env`:
+4. Ganti `https://f004.backblazeb2.com/file/myapp-assets` dengan endpoint B2 bucket Anda
+   - Format: `https://{endpoint}/file/{bucket-name}`
+   - Contoh: `https://s3.us-west-004.backblazeb2.com/file/myapp-assets`
+
+#### 7.2.2 Setup Route (Custom Domain)
+
+1. Worker dashboard → tab **Triggers**
+2. Di **Routes**, klik **Add Route**
+3. Isi:
+   - **Route**: `assets.example.com/*`
+   - **Worker**: pilih `b2-proxy`
+4. Klik **Add Route**
+5. Tambahkan DNS record CNAME `assets.example.com` → `@` (atau `cloudflare` jika proxy aktif)
+
+> **Alternatif**: Jika tidak ingin route Worker, bisa langsung pasang Worker di subdomain via **Custom Domain** di tab yang sama.
+
+#### 7.2.3 Update Environment
+
 ```env
 B2_URL=https://assets.example.com
 ```
 
-### 7.2 Opsi B: BunnyCDN
-1. Daftar [BunnyCDN](https://bunny.net)
-2. Create Pull Zone → Origin URL: `https://f004.backblazeb2.com/file/myapp-assets`
-3. Aktifkan custom domain di pull zone
-4. Update `.env`:
-```env
-B2_URL=https://cdn-assets.example.com
+#### 7.2.4 Verifikasi
+
+```bash
+php artisan tinker
+> Storage::disk('b2')->put('test/hello.txt', 'Hello B2 via CDN!');
+> Storage::disk('b2')->url('test/hello.txt');
+# Output: https://assets.example.com/test/hello.txt
 ```
+
+Buka URL tersebut di browser — harusnya menampilkan "Hello B2 via CDN!".
+
+### 7.3 Opsi B: BunnyCDN (Berbayar, Performa Lebih Baik)
+
+#### 7.3.1 Setup Pull Zone
+
+1. Daftar/login ke [BunnyCDN](https://bunny.net)
+2. Dashboard → **Pull Zones** → **Add Pull Zone**
+3. Isi:
+   - **Pull Zone Name**: `myapp-assets`
+   - **Origin URL**: `https://f004.backblazeb2.com/file/myapp-assets`
+   - **Type**: `Storage`
+4. Konfigurasi tambahan (opsional):
+   - **Enable Logging**: On (untuk debugging)
+   - **Cache Control**: `public, max-age=31536000, immutable`
+   - **Enable CORS**: On
+
+#### 7.3.2 Setup Custom Domain
+
+1. Di Pull Zone → tab **Custom Domains**
+2. Klik **Add Custom Domain**
+3. Masukkan `assets.example.com`
+4. Tambahkan DNS record CNAME `assets.example.com` → `{pullzone}.bunnycdn.io` (contoh: `myapp-assets.bunnycdn.io`)
+
+#### 7.3.3 Update Environment
+
+```env
+B2_URL=https://assets.example.com
+```
+
+### 7.4 Opsi C: Cloudflare Transform Rules (Tanpa Worker)
+
+Cara ini memanfaatkan **Reverse Proxy** bawaan Cloudflare tanpa perlu Worker.
+
+1. Dashboard Cloudflare → domain Anda → **Rules** → **Transform Rules**
+2. Klik **Create Transform Rule** → **Rewrite URL**
+3. Isi:
+   - **Rule Name**: `B2 Proxy`
+   - **When**: `Hostname equals "assets.example.com"`
+   - **Then**: Rewrite to `Dynamic` → `concat("https://f004.backblazeb2.com/file/myapp-assets", http.request.uri.path)`
+4. Tambahkan DNS record CNAME `assets.example.com` → `{domain.com}` (point ke domain utama)
+5. Pastikan proxy Cloudflare aktif (orange cloud)
+
+### 7.5 Catatan Penting
+
+| Hal | Keterangan |
+|-----|------------|
+| **SSL/TLS** | Otomatis (Cloudflare/BunnyCDN). Tidak perlu sertifikat manual. |
+| **Cache** | Cloudflare akan cache file statis. Untuk file dinamis, set header `Cache-Control: no-cache`. |
+| **CORS** | Pastikan CDN mengizinkan akses dari origin aplikasi. Worker di atas sudah include CORS headers. |
+| **Harga Worker** | Cloudflare Worker gratis hingga 100k request/hari. BunnyCDN mulai ~$1/bulan. |
+| **Batasan Worker** | CPU 10ms per request, memory 128MB, response size 100MB. Untuk file besar, gunakan BunnyCDN. |
+| **Purge Cache** | Cloudflare: Dashboard → Caching → Purge Everything. BunnyCDN: Pull Zone → Purge Cache. |
+
+### 7.6 Multiple Environment
+
+| Environment | Subdomain | CDN Config |
+|-------------|-----------|------------|
+| Production | `assets.example.com` | Worker/BunnyCDN utama |
+| Staging | `assets-staging.example.com` | Worker terpisah / Pull Zone beda |
+| Development | `assets-dev.example.com` | Worker terpisah / Pull Zone beda |
+
+Untuk environment berbeda, buat Worker/Pull Zone terpisah dengan endpoint yang mengarah ke bucket/folder berbeda.
 
 ---
 

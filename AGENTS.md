@@ -1,158 +1,137 @@
-<laravel-boost-guidelines>
-=== foundation rules ===
+# AGENTS.md
 
-# Laravel Boost Guidelines
+## Commands
 
-The Laravel Boost guidelines are specifically curated by Laravel maintainers for this application. These guidelines should be followed closely to ensure the best experience when building Laravel applications.
+```bash
+# Setup (first run)
+composer install && npm install && cp .env.example .env && php artisan key:generate && php artisan migrate
 
-## Foundational Context
+# Dev server (PHP + Vite concurrently)
+composer run dev
 
-This application is a Laravel application and its main Laravel ecosystems package & versions are below. You are an expert with them all. Ensure you abide by these specific packages & versions.
+# Build assets
+npm run build
 
-- php - 8.3
-- laravel/ai (AI) - v0
-- laravel/fortify (FORTIFY) - v1
-- laravel/framework (LARAVEL) - v13
-- laravel/prompts (PROMPTS) - v0
-- livewire/flux (FLUXUI_FREE) - v2
-- livewire/livewire (LIVEWIRE) - v4
-- larastan/larastan (LARASTAN) - v3
-- laravel/boost (BOOST) - v2
-- laravel/mcp (MCP) - v0
-- laravel/pail (PAIL) - v1
-- laravel/pint (PINT) - v1
-- laravel/sail (SAIL) - v1
-- phpunit/phpunit (PHPUNIT) - v12
-- tailwindcss (TAILWINDCSS) - v4
+# Code quality (run after every PHP edit)
+vendor/bin/pint --dirty --format agent
+
+# Static analysis
+php artisan types:check
+
+# Tests
+php artisan test --compact                                          # all tests
+php artisan test --compact tests/Feature/ExampleTest.php            # one file
+php artisan test --compact --filter=testName                        # one test
+php artisan make:test --phpunit {name}                              # create test
+
+# Full CI gate (clear config → lint → types → test)
+composer run test
+
+# Queue worker (required for OTP & email)
+php artisan queue:work --queue=otp,default
+```
+
+**PHPUnit env** (`phpunit.xml`): SQLite `:memory:`, `QUEUE_CONNECTION=sync`, `CACHE_STORE=array`, `MAIL_MAILER=array`. No external services needed for tests.
+
+**Vite manifest error**: run `npm run build` or `composer run dev`.
+
+## Architecture
+
+**Stack**: Laravel 13 · PHP 8.3 · Livewire 4 · Flux UI v2 · Tailwind v4 · Fortify v1 · laravel/ai v0 · PHPUnit 12 · Larastan v3 (level 7)
+
+**Database**: SQLite (dev) · PostgreSQL/MySQL (prod) · `DB::prohibitDestructiveCommands()` in production
+
+### Page-Based Anonymous Livewire (critical)
+
+Most pages are **anonymous Livewire classes defined inline in Blade files**:
+
+- File path: `resources/views/pages/{feature}/⚡{name}.blade.php` — the `⚡` prefix is **required** for `pages::` namespace resolution.
+- Route: `Route::livewire('path', 'pages::feature.name')` in `routes/web.php` or `routes/settings.php`.
+- No matching class in `app/Livewire/` — the class lives only in the Blade file.
+- File structure: `<?php` + use statements, then `new #[Layout('layouts.app')] class extends Component { ... }`.
+- `app/Livewire/Actions/Logout.php` is the **only** conventional Livewire class.
+
+**To add a new page**: create `resources/views/pages/{feature}/⚡{name}.blade.php`, register `Route::livewire(...)` in `routes/web.php`.
+
+### Routing
+
+- `routes/web.php` — all web routes (Livewire pages)
+- `routes/settings.php` — `require`d from `web.php`; settings routes live here
+- `routes/console.php` — scheduled `livewire:clear-tmp` daily
+- **No `api.php`** by default — add via `withRouting(api: ...)` in `bootstrap/app.php` if needed
+- Middleware alias `login-otp` → `App\Http\Middleware\EnsureLoginOtpVerified`
+- `api/*` requests render JSON exceptions
+
+### Login OTP Flow
+
+Two-step auth after Fortify password login. `AppServiceProvider::register()` binds `LoginResponse` → `LoginOtpLoginResponse`, redirecting to `/auth/otp-challenge` instead of dashboard. `login-otp` middleware guards all authenticated routes. OTP delivery: `App\Jobs\SendOtpJob` on queue `otp`, via WhatsApp (priority) or email. Per-user channel preference in `users.otp_channel_preference`.
+
+### AI Chatbot
+
+- Custom `9router` driver registered in `AppServiceProvider::configureAiDrivers()` via `Ai::extend('9router', ...)`.
+- `App\Ai\Providers\NineRouterProvider` extends `OpenRouterProvider` with custom gateway adding `Accept: application/json` header.
+- `App\Ai\Agents\ChatAgent` implements `Agent` + `Conversational` with `RemembersConversations` (persists to `agent_conversations` tables).
+- `config/ai-chat.php` defines chat UI registry (labels + models per provider).
+- Providers without API key are auto-hidden by `App\Services\AiChat\ProviderRegistry`.
+
+### Storage
+
+- `s3` disk: Backblaze B2 (`B2_*` env vars, requires `league/flysystem-aws-s3-v3`)
+- `r2` disk: Cloudflare R2 (`R2_*` env vars)
+- `local` disk: temp files (QR codes in `qr-codes-tmp/`, cleaned by `livewire:clear-tmp` schedule)
+- PDF invoices stored on `b2` disk via `FakturPdfService` (dompdf)
+- `temporaryUrl()` for private access, `url()` for public
+
+### Key Services
+
+| Service | Location | Purpose |
+|---------|----------|---------|
+| `LoginOtpService` | `app/Services/LoginOtpService.php` | Issue/verify/resend OTP codes |
+| `FakturPdfService` | `app/Services/FakturPdfService.php` | PDF invoice generation + B2 upload |
+| `QrCodeTemporaryFileService` | `app/Services/QrCodeTemporaryFileService.php` | QR code PNG/JPG generation + cleanup |
+| `MarkdownRendererService` | `app/Services/MarkdownRendererService.php` | GFM rendering for docs viewer |
+| `ProviderRegistry` | `app/Services/AiChat/ProviderRegistry.php` | AI provider visibility control |
+
+### Feature Pages
+
+| Feature | Route | Page File |
+|---------|-------|-----------|
+| Chat | `/chat` | `pages/chat/⚡index.blade.php` |
+| Warga | `/warga` | `pages/warga/⚡index.blade.php` |
+| Notes | `/notes` | `pages/notes/⚡index.blade.php` |
+| WhatsApp | `/whatsapp/send-message` | `pages/whatsapp/⚡send-message.blade.php` |
+| Email | `/email/send-message` | `pages/email/⚡send-message.blade.php` |
+| QR Code | `/qr-code/generate` | `pages/qr-code/⚡generate.blade.php` |
+| Faktur | `/faktur/generate` | `pages/faktur/⚡generate.blade.php` |
+| Docs | `/docs` | `pages/docs/⚡index.blade.php` |
+
+### Vite
+
+- Entry points: `resources/css/app.css`, `resources/js/app.js`, `resources/js/passkeys.js`
+- Tailwind v4 via `@tailwindcss/vite` plugin (no `tailwind.config.js`)
+- `@tailwindcss/typography` for prose styling
+- Fonts: Bunny Fonts (Instrument Sans)
+- Dev server CORS enabled
+
+### Observability
+
+- `binarybuilds/laritor-client` for APM — config via `LARITOR_*` env vars
+- `laravel/octane` installed — server configured via `OCTANE_SERVER` env
+- `laravel/chisel` installed
+
+### AI SDK Stubs
+
+`stubs/` contains AI SDK templates: `agent.stub`, `structured-agent.stub`, `tool.stub`, `agent-middleware.stub`.
 
 ## Conventions
 
-- You must follow all existing code conventions used in this application. When creating or editing a file, check sibling files for the correct structure, approach, and naming.
-- Use descriptive names for variables and methods. For example, `isRegisteredForDiscounts`, not `discount()`.
-- Check for existing components to reuse before writing a new one.
-
-## Verification Scripts
-
-- Do not create verification scripts or tinker when tests cover that functionality and prove they work. Unit and feature tests are more important.
-
-## Application Structure & Architecture
-
-- Stick to existing directory structure; don't create new base folders without approval.
-- Do not change the application's dependencies without approval.
-
-## Frontend Bundling
-
-- If the user doesn't see a frontend change reflected in the UI, it could mean they need to run `npm run build`, `npm run dev`, or `composer run dev`. Ask them.
-
-## Documentation Files
-
-- You must only create documentation files if explicitly requested by the user.
-
-## Replies
-
-- Be concise in your explanations - focus on what's important rather than explaining obvious details.
-
-=== boost rules ===
-
-# Laravel Boost
-
-## Artisan
-
-- Run Artisan commands directly via the command line (e.g., `php artisan route:list`). Use `php artisan list` to discover available commands and `php artisan [command] --help` to check parameters.
-- Inspect routes with `php artisan route:list`. Filter with: `--method=GET`, `--name=users`, `--path=api`, `--except-vendor`, `--only-vendor`.
-- Read configuration values using dot notation: `php artisan config:show app.name`, `php artisan config:show database.default`. Or read config files directly from the `config/` directory.
-
-## Tinker
-
-- Execute PHP in app context for debugging and testing code. Do not create models without user approval, prefer tests with factories instead. Prefer existing Artisan commands over custom tinker code.
-- Always use single quotes to prevent shell expansion: `php artisan tinker --execute 'Your::code();'`
-  - Double quotes for PHP strings inside: `php artisan tinker --execute 'User::where("active", true)->count();'`
-
-=== php rules ===
-
-# PHP
-
-- Always use curly braces for control structures, even for single-line bodies.
-- Use PHP 8 constructor property promotion: `public function __construct(public GitHub $github) { }`. Do not leave empty zero-parameter `__construct()` methods unless the constructor is private.
-- Use explicit return type declarations and type hints for all method parameters: `function isAccessible(User $user, ?string $path = null): bool`
-- Use TitleCase for Enum keys: `FavoritePerson`, `BestLake`, `Monthly`.
-- Prefer PHPDoc blocks over inline comments. Only add inline comments for exceptionally complex logic.
-- Use array shape type definitions in PHPDoc blocks.
-
-=== deployments rules ===
-
-# Deployment
-
-- Laravel can be deployed using [Laravel Cloud](https://cloud.laravel.com/), which is the fastest way to deploy and scale production Laravel applications.
-
-=== tests rules ===
-
-# Test Enforcement
-
-- Every change must be programmatically tested. Write a new test or update an existing test, then run the affected tests to make sure they pass.
-- Run the minimum number of tests needed to ensure code quality and speed. Use `php artisan test --compact` with a specific filename or filter.
-
-=== laravel/core rules ===
-
-# Do Things the Laravel Way
-
-- Use `php artisan make:` commands to create new files (i.e. migrations, controllers, models, etc.). You can list available Artisan commands using `php artisan list` and check their parameters with `php artisan [command] --help`.
-- If you're creating a generic PHP class, use `php artisan make:class`.
-- Pass `--no-interaction` to all Artisan commands to ensure they work without user input. You should also pass the correct `--options` to ensure correct behavior.
-
-### Model Creation
-
-- When creating new models, create useful factories and seeders for them too. Ask the user if they need any other things, using `php artisan make:model --help` to check the available options.
-
-## APIs & Eloquent Resources
-
-- For APIs, default to using Eloquent API Resources and API versioning unless existing API routes do not, then you should follow existing application convention.
-
-## URL Generation
-
-- When generating links to other pages, prefer named routes and the `route()` function.
-
-## Testing
-
-- When creating models for tests, use the factories for the models. Check if the factory has custom states that can be used before manually setting up the model.
-- Faker: Use methods such as `$this->faker->word()` or `fake()->randomDigit()`. Follow existing conventions whether to use `$this->faker` or `fake()`.
-- When creating tests, make use of `php artisan make:test [options] {name}` to create a feature test, and pass `--unit` to create a unit test. Most tests should be feature tests.
-
-## Vite Error
-
-- If you receive an "Illuminate\Foundation\ViteException: Unable to locate file in Vite manifest" error, you can run `npm run build` or ask the user to run `npm run dev` or `composer run dev`.
-
-=== livewire/core rules ===
-
-# Livewire
-
-- Livewire allow to build dynamic, reactive interfaces in PHP without writing JavaScript.
-- You can use Alpine.js for client-side interactions instead of JavaScript frameworks.
-- Keep state server-side so the UI reflects it. Validate and authorize in actions as you would in HTTP requests.
-
-=== pint/core rules ===
-
-# Laravel Pint Code Formatter
-
-- If you have modified any PHP files, you must run `vendor/bin/pint --dirty --format agent` before finalizing changes to ensure your code matches the project's expected style.
-- Do not run `vendor/bin/pint --test --format agent`, simply run `vendor/bin/pint --format agent` to fix any formatting issues.
-
-=== phpunit/core rules ===
-
-# PHPUnit
-
-- This application uses PHPUnit for testing. All tests must be written as PHPUnit classes. Use `php artisan make:test --phpunit {name}` to create a new test.
-- If you see a test using "Pest", convert it to PHPUnit.
-- Every time a test has been updated, run that singular test.
-- When the tests relating to your feature are passing, ask the user if they would like to also run the entire test suite to make sure everything is still passing.
-- Tests should cover all happy paths, failure paths, and edge cases.
-- You must not remove any tests or test files from the tests directory without approval. These are not temporary or helper files; these are core to the application.
-
-## Running Tests
-
-- Run the minimal number of tests, using an appropriate filter, before finalizing.
-- To run all tests: `php artisan test --compact`.
-- To run all tests in a file: `php artisan test --compact tests/Feature/ExampleTest.php`.
-- To filter on a particular test name: `php artisan test --compact --filter=testName` (recommended after making a change to a related file).
-
-</laravel-boost-guidelines>
+- **Never create docs** unless explicitly requested.
+- **Always run `vendor/bin/pint --dirty --format agent`** after editing PHP files.
+- **Always write tests** (PHPUnit classes, not Pest). Every change needs a test.
+- **Use `php artisan make:`** commands with `--no-interaction` for generating files.
+- **Reuse existing components** before creating new ones. Check sibling files for patterns.
+- **No new base folders** without approval.
+- **No dependency changes** without approval.
+- **PHPDoc blocks** preferred over inline comments. No comments unless asked.
+- **PHP 8 constructor promotion** and explicit return types everywhere.
+- **Named routes** via `route()` for all URL generation.
