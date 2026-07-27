@@ -31,6 +31,8 @@ Route::middleware(['auth', 'verified', 'login-otp'])->group(function () {
     Route::livewire('qr-code/generate', 'pages::qr-code.generate')->name('qr-code.generate');
     Route::livewire('faktur/generate', 'pages::faktur.generate')->name('faktur.generate');
     Route::livewire('docs', 'pages::docs.index')->name('docs.index');
+    Route::livewire('gallery', 'pages::gallery.index')->name('gallery.index');
+    Route::livewire('file-host', 'pages::file-host.index')->name('file-host.index');
 
     Route::get('qr-code/download/{filename}', function (string $filename, QrCodeTemporaryFileService $temporaryFileService) {
         $path = $temporaryFileService->path($filename);

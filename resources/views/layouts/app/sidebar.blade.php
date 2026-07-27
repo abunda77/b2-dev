@@ -66,6 +66,18 @@
                         </x-slot:icon>
                         {{ __('Docs') }}
                     </flux:sidebar.item>
+                    <flux:sidebar.item :href="route('gallery.index')" :current="request()->routeIs('gallery.*')" wire:navigate>
+                        <x-slot:icon>
+                            <flux:icon.photo variant="solid" class="text-pink-400! size-5!" />
+                        </x-slot:icon>
+                        {{ __('Gallery') }}
+                    </flux:sidebar.item>
+                    <flux:sidebar.item :href="route('file-host.index')" :current="request()->routeIs('file-host.*')" wire:navigate>
+                        <x-slot:icon>
+                            <flux:icon.cloud-arrow-up variant="solid" class="text-sky-400! size-5!" />
+                        </x-slot:icon>
+                        {{ __('File Host') }}
+                    </flux:sidebar.item>
                 </flux:sidebar.group>
             </flux:sidebar.nav>
 

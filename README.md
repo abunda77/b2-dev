@@ -16,6 +16,7 @@ Aplikasi web berbasis **Laravel 13** dan **Livewire 4** untuk mengelola data war
 - **Cetak Faktur / Invoice PDF** — buat faktur dengan item dinamis, total otomatis, terbilang rupiah, pilihan ukuran kertas, upload logo, preview PDF, riwayat faktur, dan penyimpanan file ke Backblaze B2.
 - **AI Chatbot** — percakapan AI multi-provider (OpenAI, Anthropic, Gemini, 9Router, dll.) dengan dukungan lampiran file, percakapan berkelanjutan, dan pemilihan model dinamis via `laravel/ai`.
 - **Markdown Reader (Docs)** — viewer dokumen Markdown dengan sidebar + preview, upload file `.md`, sync otomatis dari root project dan folder `docs/`, rendering GFM via `league/commonmark`, dan download dokumen.
+- **File Host** — upload file besar langsung ke Backblaze B2 via presigned URL, multipart upload untuk file >5 MB, progress bar real-time, tanpa file temp, CRUD file management. Upload dari browser langsung ke B2 tanpa lewat server.
 - **UI modern** — Flux UI + TailwindCSS 4, halaman pengaturan (profil, keamanan, tampilan).
 
 
@@ -27,7 +28,7 @@ Aplikasi web berbasis **Laravel 13** dan **Livewire 4** untuk mengelola data war
 | Frontend        | Livewire 4.x, Flux UI, TailwindCSS 4, Vite, Alpine.js |
 | Autentikasi     | Laravel Fortify, Passkeys, 2FA, OTP Login, OAuth Google (`laravel/socialite`) |
 | Queue           | Laravel Queue (driver `database` / `sync`), queue `otp` |
-| Integrasi       | WhatsApp Gateway REST API (Go), QR Code Generator, Faktur PDF Generator, Laravel AI (chatbot), league/commonmark (Markdown) |
+| Integrasi       | WhatsApp Gateway REST API (Go), QR Code Generator, Faktur PDF Generator, Laravel AI (chatbot), league/commonmark (Markdown), AWS S3 SDK (presigned URL, multipart upload) |
 | Penyimpanan     | S3-compatible (Backblaze B2, Cloudflare R2, AWS S3)   |
 | Database        | SQLite (dev), PostgreSQL/MySQL (prod)                 |
 | Testing         | PHPUnit 12.x                                          |
@@ -114,6 +115,7 @@ database/
 └── seeders/
 resources/views/
 ├── pages/warga/      # Halaman manajemen warga
+├── pages/file-host/  # Halaman upload file besar ke B2 (direct upload, multipart)
 ├── pages/auth/       # Halaman autentikasi (termasuk otp-challenge)
 ├── pages/email/      # Halaman kirim email SMTP
 ├── pages/qr-code/    # Halaman generate QR code
