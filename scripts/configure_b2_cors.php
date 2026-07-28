@@ -9,13 +9,13 @@
  *   php scripts/configure_b2_cors.php http://localhost:8000 https://domain-anda.com
  */
 
+use App\Services\B2UploadService;
+use Illuminate\Contracts\Console\Kernel;
+
 require __DIR__.'/../vendor/autoload.php';
 
 $app = require_once __DIR__.'/../bootstrap/app.php';
 $app->make(Kernel::class)->bootstrap();
-
-use App\Services\B2UploadService;
-use Illuminate\Contracts\Console\Kernel;
 
 $service = new B2UploadService;
 
