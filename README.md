@@ -1,4 +1,4 @@
-# B2 Dev — Aplikasi Manajemen Warga
+# B2 Dev — Aplikasi Manajemen Warga RT/RW
 
 Aplikasi web berbasis **Laravel 13** dan **Livewire 4** untuk mengelola data warga (NIK, nama, alamat, pas foto, dan dokumen). Dibangun di atas Laravel Livewire Starter Kit dengan autentikasi modern (passkey + 2FA via Fortify + OTP), penyimpanan file ke storage S3-compatible (Backblaze B2 / Cloudflare R2 / AWS S3), dan integrasi **WhatsApp Gateway** untuk pengiriman pesan dan kode OTP.
 

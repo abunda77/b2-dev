@@ -44,8 +44,7 @@ database/.gitignore
 storage/blaze/
 storage/framework/.gitignore       
 database/database.sqlite 
-
-
+.codegraph/
 
 **/caddy
 frankenphp

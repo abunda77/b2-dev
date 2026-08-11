@@ -183,6 +183,8 @@ class B2UploadService
 
     /**
      * Read current CORS configuration from the bucket.
+     *
+     * @return list<array<string, mixed>>|null
      */
     public function getCorsConfig(): ?array
     {

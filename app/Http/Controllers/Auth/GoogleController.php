@@ -10,15 +10,16 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
-use Laravel\Socialite\AbstractUser;
+use Laravel\Socialite\Contracts\User as SocialiteUser;
 use Laravel\Socialite\Facades\Socialite;
+use Symfony\Component\HttpFoundation\RedirectResponse as SymfonyRedirectResponse;
 
 class GoogleController
 {
     /**
      * Arahkan user ke halaman izin Google.
      */
-    public function redirect(Request $request): RedirectResponse
+    public function redirect(Request $request): SymfonyRedirectResponse
     {
         return Socialite::driver('google')->redirect();
     }
@@ -70,7 +71,7 @@ class GoogleController
     /**
      * Cari user berdasar google_id atau email; buat bila belum ada.
      */
-    private function findOrCreateUser(AbstractUser $googleUser): User
+    private function findOrCreateUser(SocialiteUser $googleUser): User
     {
         $existing = User::where('google_id', $googleUser->getId())
             ->orWhere('email', $googleUser->getEmail())

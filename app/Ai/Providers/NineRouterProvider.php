@@ -11,6 +11,9 @@ use Laravel\Ai\Providers\OpenRouterProvider;
 
 class NineRouterProvider extends OpenRouterProvider
 {
+    /**
+     * @param  array<string, mixed>  $config
+     */
     public function __construct(array $config, Dispatcher $events)
     {
         parent::__construct($config, $events);

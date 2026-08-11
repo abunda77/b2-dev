@@ -41,7 +41,13 @@ class Document extends Model
         if ($this->source === 'project_root' || $this->source === 'docs_folder') {
             $fullPath = base_path($this->disk_path);
 
-            return file_exists($fullPath) ? file_get_contents($fullPath) : null;
+            if (! file_exists($fullPath)) {
+                return null;
+            }
+
+            $content = file_get_contents($fullPath);
+
+            return $content === false ? null : $content;
         }
 
         // Uploaded files are stored on the local disk

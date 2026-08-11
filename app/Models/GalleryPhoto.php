@@ -27,6 +27,9 @@ class GalleryPhoto extends Model
         'file_size' => 'integer',
     ];
 
+    /**
+     * @return BelongsTo<User, $this>
+     */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

@@ -16,6 +16,9 @@ class FakturPdfService
 
     public const DIR_LOGO = 'faktur/logos';
 
+    /**
+     * @return array{0: array{0: int, 1: int, 2: float, 3: float}|'a4', 1: 'portrait'}
+     */
     public function paperConfig(string $size): array
     {
         return match ($size) {
@@ -37,7 +40,9 @@ class FakturPdfService
 
         $filename = time().'_logo_'.Str::slug(pathinfo($logo->getClientOriginalName(), PATHINFO_FILENAME)).'.'.$logo->getClientOriginalExtension();
 
-        return $logo->storePubliclyAs(self::DIR_LOGO, $filename, self::DISK);
+        $path = $logo->storePubliclyAs(self::DIR_LOGO, $filename, self::DISK);
+
+        return $path === false ? null : $path;
     }
 
     public function formatRupiah(float $nominal): string
@@ -46,7 +51,7 @@ class FakturPdfService
     }
 
     /**
-     * @param  array{name: string, nominal: float, items: array, terbilang: string, memo: ?string, paper_size: string, logo_path: ?string, nomor_faktur: string}  $data
+     * @param  array{name: string, nominal: float, items: list<array<string, mixed>>, terbilang: string, memo: ?string, paper_size: string, logo_path: ?string, nomor_faktur: string}  $data
      * @return array{pdf_path: string, preview: string}
      */
     public function generate(array $data): array

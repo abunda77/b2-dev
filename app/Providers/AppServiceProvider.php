@@ -14,7 +14,6 @@ use Illuminate\Validation\Rules\Password;
 use Laravel\Ai\Ai;
 use Laravel\Fortify\Contracts\LoginResponse;
 use Laravel\Fortify\Contracts\RegisterResponse;
-use Livewire\Blaze\Blaze;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -32,8 +31,10 @@ class AppServiceProvider extends ServiceProvider
 
     protected function configureAiDrivers(): void
     {
-        Ai::extend('9router', function ($app, array $config) {
-            return new NineRouterProvider($config, $this->app->make(Dispatcher::class));
+        $container = $this->app;
+
+        Ai::extend('9router', function ($app, array $config) use ($container) {
+            return new NineRouterProvider($config, $container->make(Dispatcher::class));
         });
     }
 
