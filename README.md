@@ -12,7 +12,7 @@ Aplikasi web berbasis **Laravel 13** dan **Livewire 4** untuk mengelola data war
 - **Penyimpanan fleksibel** — disk `local`, `public`, `s3` (B2), dan `r2` (Cloudflare R2).
 - **WhatsApp Gateway** — kirim pesan WhatsApp melalui REST API gateway dengan dukungan Basic Auth, `X-Device-Id`, debug konfigurasi `.env`, dan tampilan detail error pengiriman.
 - **SMTP Email Dashboard** — kirim email SMTP Brevo dari dashboard dengan debug konfigurasi `.env` dan status pengiriman via toaster.
-- **Generate QR Code** — buat QR code dari input teks, preview hasil, dan unduh file PNG/JPG dari temporary storage lokal.
+- **Lottery** — Slot machine mini‑game powered by Laravel Lottery, with Alpine.js animation, win statistics, and history tracking.
 - **Cetak Faktur / Invoice PDF** — buat faktur dengan item dinamis, total otomatis, terbilang rupiah, pilihan ukuran kertas, upload logo, preview PDF, riwayat faktur, dan penyimpanan file ke Backblaze B2.
 - **AI Chatbot** — percakapan AI multi-provider (OpenAI, Anthropic, Gemini, 9Router, dll.) dengan dukungan lampiran file, percakapan berkelanjutan, dan pemilihan model dinamis via `laravel/ai`.
 - **Markdown Reader (Docs)** — viewer dokumen Markdown dengan sidebar + preview, upload file `.md`, sync otomatis dari root project dan folder `docs/`, rendering GFM via `league/commonmark`, dan download dokumen.

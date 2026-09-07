@@ -20,7 +20,7 @@ Route::middleware(['auth'])->group(function () {
 });
 
 Route::middleware(['auth', 'verified', 'login-otp'])->group(function () {
-    Route::view('dashboard', 'dashboard')->name('dashboard');
+    Route::livewire('dashboard', 'pages::dashboard.index')->name('dashboard');
 
     Route::livewire('chat', 'pages::chat.index')->name('chat.index');
 
@@ -33,6 +33,7 @@ Route::middleware(['auth', 'verified', 'login-otp'])->group(function () {
     Route::livewire('docs', 'pages::docs.index')->name('docs.index');
     Route::livewire('gallery', 'pages::gallery.index')->name('gallery.index');
     Route::livewire('file-host', 'pages::file-host.index')->name('file-host.index');
+    Route::livewire('lottery', 'pages::lottery.index')->name('lottery.index');
 
     Route::get('qr-code/download/{filename}', function (string $filename, QrCodeTemporaryFileService $temporaryFileService) {
         $path = $temporaryFileService->path($filename);

@@ -78,6 +78,12 @@
                         </x-slot:icon>
                         {{ __('File Host') }}
                     </flux:sidebar.item>
+                    <flux:sidebar.item :href="route('lottery.index')" :current="request()->routeIs('lottery.*')" wire:navigate>
+                        <x-slot:icon>
+                            <flux:icon.ticket variant="solid" class="text-violet-400! size-5!" />
+                        </x-slot:icon>
+                        {{ __('Lottery') }}
+                    </flux:sidebar.item>
                 </flux:sidebar.group>
             </flux:sidebar.nav>
 

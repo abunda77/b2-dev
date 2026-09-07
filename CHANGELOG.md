@@ -10,6 +10,7 @@ dan proyek mengikuti [Semantic Versioning](https://semver.org/lang/id/).
 ### Added
 
 - Fitur **File Host** — upload file besar (>2 MB) langsung ke Backblaze B2 via presigned URL, multipart upload untuk file >5 MB, progress bar real-time, tanpa membebani server, tanpa file temp
+- Fitur **Lottery** — slot machine mini‑game powered by Laravel Lottery, dengan animasi Alpine.js, statistik kemenangan, dan riwayat putaran.
 - Fitur cetak invoice / faktur PDF dengan preview, riwayat, upload logo, dan penyimpanan B2
 - Fitur AI chatbot multi-provider beserta provider config dan perbaikan 9Router
 - Fitur generate QR code
