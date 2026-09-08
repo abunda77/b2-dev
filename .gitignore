@@ -49,3 +49,4 @@ database/database.sqlite
 **/caddy
 frankenphp
 frankenphp-worker.php
+.hallmark/
